@@ -7,9 +7,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="连连看PWA">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>萌萌连连看 (TinyMusic BGM)</title>
+    <title>萌萌连连看</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://raw.githack.com/kevincennis/TinyMusic/master/dist/TinyMusic.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -172,6 +171,8 @@
             </div>
         </div>
     </div>
+    
+    <audio id="bgm-audio" src="bgm.mid" loop></audio>
 
     <script>
         // --- Game Configuration ---
@@ -180,7 +181,7 @@
         const BOARD_ROWS = GAME_ROWS + 2; // Including border for pathfinding
         const BOARD_COLS = GAME_COLS + 2; // Including border for pathfinding
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "�", "🦢", "🦜", "🦩", "🦚"];
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -190,30 +191,29 @@
         let timerInterval = null;
         let tilesRemaining = 0;
         let bgmEnabled = true; // BGM default on
-        let bgmSequence = null;
+        // bgmSequence removed
         let isProcessingMatch = false; // Flag to prevent clicks during animation
 
-        // --- Web Audio API Setup (for sound effects) & TinyMusic ---
-        let audioCtx = null;
+        // --- Web Audio API Setup (for sound effects) ---
+        // TinyMusic related parts removed from here
+        let audioCtx = null; // Still used for sound effects
 
-        function initAudioContext() {
+        function initAudioContext() { // Renamed to avoid confusion, solely for sound effects now
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    console.log("AudioContext initialized for sound effects and TinyMusic.");
-																		   
+                    console.log("AudioContext initialized for sound effects.");
+                    // Attempt to play BGM on first interaction if enabled
                     if (bgmEnabled) {
-                        playTinyMusicBGM();
+                        playMidiBGM();
                     }
                 } catch (e) {
-                    console.error("Web Audio API is not supported in this browser.", e);
-                    bgmEnabled = false;
-                    updateBGMButton();
+                    console.error("Web Audio API is not supported for sound effects in this browser.", e);
+                    // BGM enabling is separate now
                 }
-            } else if (!audioCtx) {
-                bgmEnabled = false;
-                updateBGMButton();
-                console.warn("AudioContext could not be initialized. BGM and sound effects disabled.");
+            } else if (audioCtx && bgmEnabled && bgmAudioElement.paused) {
+                // If context exists and BGM was meant to play but is paused (e.g. due to tab switch)
+                playMidiBGM();
             }
         }
         // Initialize on first user interaction (click or touch) to comply with autoplay policies
@@ -233,10 +233,11 @@
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
         const messageOkBtn = document.getElementById('message-ok-btn');
+        const bgmAudioElement = document.getElementById('bgm-audio'); // Get the audio element
 
         // --- Sound Effect Functions (Direct Web Audio API) ---
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
-            if (!audioCtx || !audioCtx.destination) return;
+            if (!audioCtx || !audioCtx.destination) return; // Check if audioCtx is available for sound effects
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
@@ -259,50 +260,29 @@
         function playClickSound() { playSoundEffect('sine', 600, 0.1, 0.08); }
         function playMatchSound() { playSoundEffect('triangle', 440, 0.2, 0.12, 0.1, 880); }
         function playWinSound() {
-            if (!audioCtx) return;
+            if (!audioCtx) return; // Check for sound effects context
             const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
             freqs.forEach((freq, i) => {
                 setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.1), i * 120);
             });
         }
 
-        // --- TinyMusic Background Music ---
-        function playTinyMusicBGM() {
-            if (!audioCtx || !TinyMusic || !bgmEnabled || (bgmSequence && bgmSequence.playing)) return;
-
-            stopTinyMusicBGM();
-
-																  
-            const tempo = 100;
-            const notes = [
-                new TinyMusic.Note('C3 q'), new TinyMusic.Note('G3 q'), new TinyMusic.Note('E3 q'), new TinyMusic.Note('G3 q'),
-                new TinyMusic.Note('D3 q'), new TinyMusic.Note('A3 q'), new TinyMusic.Note('F3 q'), new TinyMusic.Note('A3 q'),
-															  
-															  
-															  
-												   
-										   
-										   
-										   
-										   
-            ];
-
-            bgmSequence = new TinyMusic.Sequence(audioCtx, tempo, notes);
-            bgmSequence.loop = true;
-            bgmSequence.staccato = 0.1;
-            bgmSequence.gain.gain.value = 0.03; // Very low volume
-            bgmSequence.smoothing = 0.1;
-            bgmSequence.waveType = 'sine';
-
-            bgmSequence.play(audioCtx.currentTime);
-            console.log("TinyMusic BGM started");
+        // --- MIDI Background Music Control ---
+        function playMidiBGM() {
+            if (bgmAudioElement && bgmAudioElement.paused && bgmEnabled) {
+                bgmAudioElement.play().catch(error => {
+                    console.warn("BGM play failed (likely due to autoplay policy):", error);
+                    // User interaction will be needed to start it via the initAudioContext or BGM button.
+                });
+                console.log("MIDI BGM attempting to play");
+            }
         }
 
-        function stopTinyMusicBGM() {
-            if (bgmSequence && typeof bgmSequence.stop === 'function') {
-                bgmSequence.stop();
-                bgmSequence = null;
-                console.log("TinyMusic BGM stopped");
+        function stopMidiBGM() {
+            if (bgmAudioElement) {
+                bgmAudioElement.pause();
+                // bgmAudioElement.currentTime = 0; // Optional: Reset to start if desired
+                console.log("MIDI BGM stopped");
             }
         }
 
@@ -311,22 +291,17 @@
         }
 
         toggleBGMBtn.addEventListener('click', () => {
-            initAudioContext(); // Ensure context is ready
-            if (!audioCtx) {
-                bgmEnabled = false; updateBGMButton(); return;
-								  
-					   
-            }
+            // initAudioContext(); // No longer needed here for BGM, but good for sound effects if not yet init
             bgmEnabled = !bgmEnabled;
-							 
-            if (bgmEnabled) playTinyMusicBGM();
-					
-            else stopTinyMusicBGM();
-			 
+            if (bgmEnabled) {
+                playMidiBGM();
+            } else {
+                stopMidiBGM();
+            }
             updateBGMButton();
         });
 
-        // --- Pathfinding Logic (unchanged from original) ---
+        // --- Pathfinding Logic (unchanged) ---
         function isCellEmptyOnBoard(r, c, targetBoard) {
             if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false;
             if (!targetBoard[r]) return false; 
@@ -334,14 +309,10 @@
         }
         function isLineClearOnBoard(p1, p2, isHorizontal, targetBoard) {
             if (isHorizontal) {
-							   
                 const r = p1.r; const minC = Math.min(p1.c, p2.c); const maxC = Math.max(p1.c, p2.c);
-												  
                 for (let c = minC + 1; c < maxC; c++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
             } else {
-							   
                 const c = p1.c; const minR = Math.min(p1.r, p2.r); const maxR = Math.max(p1.r, p2.r);
-												  
                 for (let r = minR + 1; r < maxR; r++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
             }
             return true;
@@ -365,7 +336,7 @@
             return null;
         }
 
-        // --- Solvability Check (unchanged from original) ---
+        // --- Solvability Check (unchanged) ---
         function isSolvable(boardToCheck) {
             let tempBoard = JSON.parse(JSON.stringify(boardToCheck)); let currentTiles = [];
             for (let r_idx = 1; r_idx <= GAME_ROWS; r_idx++) for (let c_idx = 1; c_idx <= GAME_COLS; c_idx++) if (tempBoard[r_idx][c_idx] !== EMPTY_TILE) currentTiles.push({ r: r_idx, c: c_idx, type: tempBoard[r_idx][c_idx] });
@@ -381,14 +352,18 @@
             }
         }
 
-        // --- Game Logic (MODIFIED handleTileClick, initGame) ---
+        // --- Game Logic (MODIFIED for MIDI BGM) ---
         function initGame() {
             console.log("Initializing game...");
             stopTimer();
             isProcessingMatch = false; // Reset animation flag
-            if (audioCtx && bgmEnabled) {
-                playTinyMusicBGM();
+            
+            if (bgmEnabled) { // Try to play BGM if enabled
+                playMidiBGM();
+            } else {
+                stopMidiBGM(); // Ensure it's stopped if disabled
             }
+
             score = 0; time = 0; tilesRemaining = GAME_ROWS * GAME_COLS;
             updateScoreDisplay(); updateTimeDisplay(); updateTilesRemainingDisplay();
             selectedTile = null; clearPathCanvas();
@@ -444,7 +419,10 @@
         function handleTileClick(event) {
             if (isProcessingMatch) return; 
 
-            initAudioContext(); 
+            // initAudioContext(); // For sound effects, called on body interaction
+            // Play click sound for tile interaction
+            playClickSound();
+
 
             const clickedElement = event.currentTarget;
             if (clickedElement.classList.contains('empty') || clickedElement.classList.contains('disappearing')) return;
@@ -453,13 +431,13 @@
             const c = parseInt(clickedElement.dataset.c);
 
             if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
-                playClickSound();
+                // playClickSound(); // Already played above
                 clickedElement.classList.remove('selected');
                 selectedTile = null;
                 return;
             }
 
-            playClickSound(); 
+            // playClickSound(); // Already played above
             clickedElement.classList.add('selected');
 
             if (!selectedTile) { 
@@ -468,17 +446,17 @@
                 const currentClickedTile = { r, c, element: clickedElement, type: board[r][c] };
                 isProcessingMatch = true; 
 
-                const firstTileType = selectedTile.type; // Capture type from selectedTile
-                const firstTileElementForEffects = selectedTile.element; // Capture element from selectedTile for effects
+                const firstTileType = selectedTile.type; 
+                const firstTileElementForEffects = selectedTile.element; 
 
                 if (firstTileType === currentClickedTile.type) { 
-                    const path = findPathOnBoard(selectedTile, currentClickedTile, board); // selectedTile object is still used for pathfinding
+                    const path = findPathOnBoard(selectedTile, currentClickedTile, board); 
                     if (path) {
                         // --- CORRECT MATCH ---
                         playMatchSound();
                         drawPath(path);
 
-                        const firstTileToRemove = selectedTile.element; // This is firstTileElementForEffects
+                        const firstTileToRemove = selectedTile.element; 
                         const secondTileToRemove = currentClickedTile.element;
                         const r1 = selectedTile.r, c1 = selectedTile.c;
                         const r2 = currentClickedTile.r, c2 = currentClickedTile.c;
@@ -500,8 +478,6 @@
                                     el.classList.add('empty');
                                     el.classList.remove('disappearing'); 
                                     el.removeEventListener('click', handleTileClick);
-                                    // The touchstart listener was an anonymous function, 
-                                    // relying on .empty class to disable interaction.
                                 });
 
                                 score += 10;
@@ -513,7 +489,7 @@
 
                                 if (tilesRemaining === 0) {
                                     stopTimer();
-                                    stopTinyMusicBGM();
+                                    stopMidiBGM(); // Stop MIDI BGM on win
                                     playWinSound();
                                     showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
                                 }
@@ -525,7 +501,7 @@
 
                     } else {
                         // --- INCORRECT MATCH (same type, no path) ---
-                        if (firstTileElementForEffects) { // Check if element exists
+                        if (firstTileElementForEffects) { 
                            firstTileElementForEffects.classList.add('shaking');
                         } else {
                             console.error("selectedTile.element was null before shaking (same type). selectedTile:", selectedTile);
@@ -533,8 +509,8 @@
                         currentClickedTile.element.classList.add('shaking');
                         if ('vibrate' in navigator) navigator.vibrate(150); 
 
-                        const firstElTimeout = firstTileElementForEffects; // Element for timeout
-                        const secondElTimeout = currentClickedTile.element; // Element for timeout
+                        const firstElTimeout = firstTileElementForEffects; 
+                        const secondElTimeout = currentClickedTile.element; 
 
                         setTimeout(() => {
                             if (firstElTimeout) firstElTimeout.classList.remove('selected', 'shaking');
@@ -544,7 +520,7 @@
                     }
                 } else {
                     // --- INCORRECT MATCH (different types) ---
-                     if (firstTileElementForEffects) { // Check if element exists
+                     if (firstTileElementForEffects) { 
                         firstTileElementForEffects.classList.add('shaking');
                     } else {
                         console.error("selectedTile.element was null before shaking (different types). selectedTile:", selectedTile);
@@ -552,8 +528,8 @@
                     currentClickedTile.element.classList.add('shaking');
                     if ('vibrate' in navigator) navigator.vibrate(150);
                     
-                    const firstElTimeout_diff = firstTileElementForEffects; // Element for timeout
-                    const secondElTimeout_diff = currentClickedTile.element; // Element for timeout
+                    const firstElTimeout_diff = firstTileElementForEffects; 
+                    const secondElTimeout_diff = currentClickedTile.element; 
 
                     setTimeout(() => {
                         if (firstElTimeout_diff) firstElTimeout_diff.classList.remove('selected', 'shaking');
@@ -631,7 +607,6 @@
             }
         });
 
-									 
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js') 
@@ -642,7 +617,6 @@
                         console.log('ServiceWorker registration failed: ', error);
                     });
             });
-		   
         }
 
         updateBGMButton(); 
