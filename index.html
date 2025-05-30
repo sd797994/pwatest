@@ -172,13 +172,13 @@
         </div>
     </div>
     
-		 
-						   
-																										  
-																									   
-																						
-																											 
-	   
+    <!-- 
+        BGM Audio Element. 
+        NOTE: If you are running this HTML file directly from your local file system (e.g., file:///...), 
+        browsers might block loading local audio files due to security restrictions (URL safety check).
+        For reliable BGM playback during local development, serve this HTML and bgm.mp3 
+        from a simple local web server (e.g., using Python's http.server or a VS Code Live Server extension).
+    -->
     <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
 
     <script>
@@ -433,7 +433,7 @@
                     isLineClearOnBoard(intermediateH, cornerV_H, false, targetBoard) && 
                     isLineClearOnBoard(cornerV_H, p2, true, targetBoard)) {
                      if (!((intermediateH.c === p1.c && intermediateH.c === p2.c) && (cornerV_H.r === p2.r && cornerV_H.c === p1.c))) { // Avoid redundant paths
-                         return [p1, intermediateH, cornerV_H, p2];
+                        return [p1, intermediateH, cornerV_H, p2];
                      }
                 }
             }
@@ -448,7 +448,7 @@
                     isLineClearOnBoard(intermediateV, cornerH_V, true, targetBoard) && 
                     isLineClearOnBoard(cornerH_V, p2, false, targetBoard)) {
                      if (!((intermediateV.r === p1.r && intermediateV.r === p2.r) && (cornerH_V.c === p1.c && cornerH_V.c === p2.c))) { // Avoid redundant paths
-                         return [p1, intermediateV, cornerH_V, p2];
+                        return [p1, intermediateV, cornerH_V, p2];
                      }
                 }
                 const cornerV_H = { r: p2.r, c: intermediateV.c }; // (ri, p1.c) -> (p2.r, p1.c) -> (p2.r, p2.c)
@@ -456,7 +456,7 @@
                     isLineClearOnBoard(intermediateV, cornerV_H, false, targetBoard) && 
                     isLineClearOnBoard(cornerV_H, p2, true, targetBoard)) {
                      if (!((intermediateV.c === p1.c && intermediateV.c === p2.c) && (cornerV_H.r === p1.r && cornerV_H.r === p2.r))) { // Avoid redundant paths
-                         return [p1, intermediateV, cornerV_H, p2];
+                        return [p1, intermediateV, cornerV_H, p2];
                      }
                 }
             }
@@ -643,12 +643,6 @@
                         playMatchSound();
                         drawPath(path);
 
-                        // --- HAPTIC FEEDBACK FOR CORRECT MATCH ---
-                        if ('vibrate' in navigator) {
-                            navigator.vibrate([50, 50, 50]); // Vibrate 50ms, pause 50ms, vibrate 50ms
-                        }
-                        // --- END HAPTIC FEEDBACK ---
-
                         const firstTileToRemove = selectedTile.element; 
                         const secondTileToRemove = currentClickedTile.element;
                         const r1 = selectedTile.r, c1 = selectedTile.c;
@@ -718,7 +712,7 @@
                      if (firstTileElementForEffects) { 
                         firstTileElementForEffects.classList.add('shaking');
                      } else {
-                         console.error("selectedTile.element was null before shaking (different types). selectedTile:", selectedTile);
+                        console.error("selectedTile.element was null before shaking (different types). selectedTile:", selectedTile);
                      }
                     currentClickedTile.element.classList.add('shaking');
                     if ('vibrate' in navigator) navigator.vibrate(150);
