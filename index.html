@@ -7,133 +7,105 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="连连看PWA">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>萌萌连连看</title>
+    <title>萌萌连连看</title>
     <script src="https://cdn.tailwindcss.com"></script>
-        <style>
+    <style>
         body {
             font-family: 'Inter', sans-serif;
-            touch-action: manipulation;
-            /* Prevents double-tap zoom, etc. */
-            overscroll-behavior-y: contain;
-            /* Prevents pull-to-refresh on game area */
+            touch-action: manipulation; /* Prevents double-tap zoom, etc. */
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on game area */
         }
         .game-wrapper {
             width: 100%;
-            max-width: 600px;
-            /* Max width for larger screens */
+            max-width: 600px; /* Max width for larger screens */
             margin: auto;
-            padding: 1rem;
-            /* Responsive padding */
+            padding: 1rem; /* Responsive padding */
         }
         .game-board {
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            /* 10 columns */
-            gap: 2px;
-            /* Small gap between tiles */
-            padding: 5px;
-            /* Padding around the grid */
+            grid-template-columns: repeat(10, 1fr); /* 10 columns */
+            gap: 2px; /* Small gap between tiles */
+            padding: 5px; /* Padding around the grid */
             background-color: #f0f0f0;
             border-radius: 8px;
-            position: relative;
-            /* For canvas positioning */
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            /* Ensure it takes full width of its container */
+            position: relative; /* For canvas positioning */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%; /* Ensure it takes full width of its container */
         }
         .tile {
-            width: 100%;
-            /* Make tile fill grid cell */
-            aspect-ratio: 1 / 1;
-            /* Maintain square shape */
+            width: 100%; /* Make tile fill grid cell */
+            aspect-ratio: 1 / 1; /* Maintain square shape */
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: clamp(14px, 4.5vw, 24px);
-            /* Responsive font size */
-            background-color: #fff5e1;
-            /* Light creamy background */
-            border: 1px solid #ffdda0;
-            /* Light orange border */
+            font-size: clamp(14px, 4.5vw, 24px); /* Responsive font size */
+            background-color: #fff5e1; /* Light creamy background */
+            border: 1px solid #ffdda0; /* Light orange border */
             border-radius: 4px;
             cursor: pointer;
             transition: transform 0.1s ease, background-color 0.2s ease;
-            user-select: none;
-            /* Prevent text selection */
+            user-select: none; /* Prevent text selection */
         }
         .tile:hover {
             transform: scale(1.05);
         }
         .tile.selected {
-            background-color: #ffd699;
-            /* Highlight color for selected tile */
+            background-color: #ffd699; /* Highlight color for selected tile */
             border-color: #ffc266;
-            box-shadow: 0 0 8px rgba(255, 165, 0, 0.5);
+            box-shadow: 0 0 8px rgba(255,165,0,0.5);
         }
         .tile.empty {
             background-color: transparent;
             border-color: transparent;
             cursor: default;
-            pointer-events: none;
-            /* Make empty tiles unclickable */
+            pointer-events: none; /* Make empty tiles unclickable */
         }
         #line-canvas {
             position: absolute;
-            top: 5px;
-            /* Match game-board padding */
-            left: 5px;
-            /* Match game-board padding */
-            width: calc(100% - 10px);
-            /* Adjust for padding */
-            height: calc(100% - 10px);
-            /* Adjust for padding */
-            pointer-events: none;
-            /* Canvas doesn't block tile clicks */
-            z-index: 10;
-            /* Draw lines above tiles but below messages */
+            top: 5px; /* Match game-board padding */
+            left: 5px; /* Match game-board padding */
+            width: calc(100% - 10px); /* Adjust for padding */
+            height: calc(100% - 10px); /* Adjust for padding */
+            pointer-events: none; /* Canvas doesn't block tile clicks */
+            z-index: 10; /* Draw lines above tiles but below messages */
         }
         .info-bar span {
-            min-width: 80px;
-            /* Ensure consistent width for info items */
+            min-width: 80px; /* Ensure consistent width for info items */
             text-align: center;
-            font-size: clamp(0.8rem, 3vw, 1rem);
-            /* Responsive font size */
+            font-size: clamp(0.8rem, 3vw, 1rem); /* Responsive font size */
         }
         button {
             padding: 0.6rem 1.2rem;
             border-radius: 0.5rem;
-            font-size: clamp(0.9rem, 3.5vw, 1rem);
-            /* Responsive font size */
+            font-size: clamp(0.9rem, 3.5vw, 1rem); /* Responsive font size */
             cursor: pointer;
         }
+
         /* Added Animation Styles */
         .tile.shaking {
-            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
-            transform: translate3d(0, 0, 0);
-            /* Hardware acceleration hint */
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0); /* Hardware acceleration hint */
         }
+
         .tile.disappearing {
             animation: disappear 0.4s ease-out forwards;
         }
+
         @keyframes shake {
-            10%,
-            90% {
+            10%, 90% {
                 transform: translate3d(-1px, 0, 0) scale(1.02);
             }
-            20%,
-            80% {
+            20%, 80% {
                 transform: translate3d(2px, 0, 0) scale(1.02);
             }
-            30%,
-            50%,
-            70% {
+            30%, 50%, 70% {
                 transform: translate3d(-3px, 0, 0) scale(1.02);
             }
-            40%,
-            60% {
+            40%, 60% {
                 transform: translate3d(3px, 0, 0) scale(1.02);
             }
         }
+
         @keyframes disappear {
             0% {
                 transform: scale(1) rotate(0deg);
@@ -145,6 +117,8 @@
             }
         }
         /* End of Added Animation Styles */
+
+
         /* Responsive adjustments for larger screens */
         @media (min-width: 600px) {
             .game-board {
@@ -158,65 +132,64 @@
                 height: calc(100% - 20px);
             }
             .tile {
-                font-size: clamp(16px, 4vw, 28px);
-                /* Slightly larger font on bigger screens */
+                font-size: clamp(16px, 4vw, 28px); /* Slightly larger font on bigger screens */
                 border-radius: 6px;
             }
         }
     </style>
 </head>
-<body
-    class="bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 min-h-screen flex flex-col items-center justify-center p-0 sm:p-4">
-        <div class="game-wrapper bg-white/90 p-4 sm:p-6 md:p-8 rounded-xl shadow-2xl w-full">
-                <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-center text-pink-600 mb-3 sm:mb-4">🌈 萌萌连连看
-            🌈</h1>
-                <div
-            class="info-bar flex flex-wrap justify-around items-center mb-3 sm:mb-4 text-gray-700 gap-1 sm:gap-2">
-                        <span class="bg-blue-100 p-1 sm:p-2 rounded-lg shadow">时间: <span id="time">0</span> 秒</span>
-                        <span class="bg-green-100 p-1 sm:p-2 rounded-lg shadow">得分: <span id="score">0</span></span>
-                        <span class="bg-yellow-100 p-1 sm:p-2 rounded-lg shadow">剩余: <span
-                    id="tiles-remaining">0</span></span>
-                    </div>
-                <div id="game-container" class="relative w-full">
-                        <div id="game-board" class="game-board mx-auto">
-                                </div>
-                        <canvas id="line-canvas"></canvas>
-                    </div>
-                <div class="controls mt-4 sm:mt-6 flex justify-center gap-4">
-                        <button id="new-game-btn"
-                class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 sm:px-6 rounded-lg shadow-md transition duration-150">
-                                新游戏
-                            </button>
-                        <button id="toggle-bgm-btn"
-                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 sm:px-6 rounded-lg shadow-md transition duration-150">
-                                BGM: 开
-                            </button>
-                    </div>
-                <div id="message-box"
-            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-                        <div class="bg-white p-6 sm:p-8 rounded-lg shadow-xl text-center max-w-xs mx-auto">
-                                <p id="message-text" class="text-lg sm:text-xl mb-4"></p>
-                                <button id="message-ok-btn"
-                    class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-6 rounded-lg">好的</button>
-                            </div>
-                    </div>
-            </div>
-        <!-- 
-        BGM Audio Element. 
-        NOTE: If you are running this HTML file directly from your local file system (e.g., file:///...), 
-        browsers might block loading local audio files due to security restrictions (URL safety check).
-        For reliable BGM playback during local development, serve this HTML and bgm.mp3 
-        from a simple local web server (e.g., using Python's http.server or a VS Code Live Server extension).
-    -->
-        <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
+<body class="bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 min-h-screen flex flex-col items-center justify-center p-0 sm:p-4">
+
+    <div class="game-wrapper bg-white/90 p-4 sm:p-6 md:p-8 rounded-xl shadow-2xl w-full">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-center text-pink-600 mb-3 sm:mb-4">🌈 萌萌连连看 🌈</h1>
+
+        <div class="info-bar flex flex-wrap justify-around items-center mb-3 sm:mb-4 text-gray-700 gap-1 sm:gap-2">
+            <span class="bg-blue-100 p-1 sm:p-2 rounded-lg shadow">时间: <span id="time">0</span> 秒</span>
+            <span class="bg-green-100 p-1 sm:p-2 rounded-lg shadow">得分: <span id="score">0</span></span>
+            <span class="bg-yellow-100 p-1 sm:p-2 rounded-lg shadow">剩余: <span id="tiles-remaining">0</span></span>
+        </div>
+
+        <div id="game-container" class="relative w-full">
+            <div id="game-board" class="game-board mx-auto">
+                </div>
+            <canvas id="line-canvas"></canvas>
+        </div>
+
+        <div class="controls mt-4 sm:mt-6 flex justify-center gap-4">
+            <button id="new-game-btn" class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 sm:px-6 rounded-lg shadow-md transition duration-150">
+                新游戏
+            </button>
+            <button id="toggle-bgm-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 sm:px-6 rounded-lg shadow-md transition duration-150">
+                BGM: 开
+            </button>
+        </div>
+
+        <div id="message-box" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-xl text-center max-w-xs mx-auto">
+                <p id="message-text" class="text-lg sm:text-xl mb-4"></p>
+                <button id="message-ok-btn" class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-6 rounded-lg">好的</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 
+        BGM Audio Element. 
+        NOTE: If you are running this HTML file directly from your local file system (e.g., file:///...), 
+        browsers might block loading local audio files due to security restrictions (URL safety check).
+        For reliable BGM playback during local development, serve this HTML and bgm.mp3 
+        from a simple local web server (e.g., using Python's http.server or a VS Code Live Server extension).
+    -->
+    <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
+
     <script>
         // --- Game Configuration ---
         const GAME_ROWS = 8;
         const GAME_COLS = 10;
-        const BOARD_ROWS = GAME_ROWS + 2;
-        const BOARD_COLS = GAME_COLS + 2;
+        const BOARD_ROWS = GAME_ROWS + 2; 
+        const BOARD_COLS = GAME_COLS + 2; 
         const EMPTY_TILE = null;
         const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "�", "🦚"];
+
         // --- Game State ---
         let board = [];
         let selectedTile = null;
@@ -224,11 +197,13 @@
         let time = 0;
         let timerInterval = null;
         let tilesRemaining = 0;
-        let bgmEnabled = true;
-        let isProcessingMatch = false;
+        let bgmEnabled = true; 
+        let isProcessingMatch = false; 
+
         // --- Web Audio API Setup (for sound effects) ---
-        let audioCtx = null;
-        function initAudioAndBGM() {
+        let audioCtx = null; 
+
+        function initAudioAndBGM() { 
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -237,13 +212,16 @@
                     console.error("Web Audio API (for sound effects) is not supported in this browser.", e);
                 }
             }
+
             if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused) {
                 console.log("Attempting to play BGM from initAudioAndBGM after user interaction.");
-                playMp3BGM();
+                playMp3BGM(); 
             }
         }
         document.body.addEventListener('click', initAudioAndBGM, { once: true });
         document.body.addEventListener('touchstart', initAudioAndBGM, { once: true });
+
+
         // --- DOM Elements ---
         const gameBoardElement = document.getElementById('game-board');
         const timeElement = document.getElementById('time');
@@ -256,12 +234,14 @@
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
         const messageOkBtn = document.getElementById('message-ok-btn');
-        const bgmAudioElement = document.getElementById('bgm-audio');
+        const bgmAudioElement = document.getElementById('bgm-audio'); 
+        
         if (bgmAudioElement) {
-            bgmAudioElement.volume = 0.2;
+            bgmAudioElement.volume = 0.2; 
             console.log(`Initial BGM volume set to: ${bgmAudioElement.volume}`);
         }
         console.log("DOM Elements: BGM Audio Element:", bgmAudioElement, "Toggle BGM Button:", toggleBGMBtn);
+
         if (bgmAudioElement) {
             bgmAudioElement.addEventListener('loadedmetadata', () => {
                 console.log(`BGM Event: loadedmetadata - Duration: ${bgmAudioElement.duration} seconds`);
@@ -281,9 +261,10 @@
             bgmAudioElement.addEventListener('suspend', () => { console.log("BGM Event: suspend"); });
             bgmAudioElement.addEventListener('waiting', () => { console.log("BGM Event: waiting"); });
         }
+
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
-            if (!audioCtx || !audioCtx.destination) return;
-            const sfxVolume = 0.5;
+            if (!audioCtx || !audioCtx.destination) return; 
+            const sfxVolume = 0.5; 
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             oscillator.type = type;
@@ -291,39 +272,44 @@
             if (freqEndTime && freqEndValue) {
                 oscillator.frequency.exponentialRampToValueAtTime(freqEndValue, audioCtx.currentTime + freqEndTime);
             }
-            gainNode.gain.setValueAtTime(sfxVolume, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(sfxVolume, audioCtx.currentTime); 
             gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             oscillator.start(audioCtx.currentTime);
             oscillator.stop(audioCtx.currentTime + duration);
         }
-        function playClickSound() { playSoundEffect('sine', 700, 0.08, 0.4); }
-        function playMatchSound() { playSoundEffect('triangle', 520, 0.15, 0.5, 0.08, 900); }
+
+        function playClickSound() { playSoundEffect('sine', 700, 0.08, 0.4); } 
+        function playMatchSound() { playSoundEffect('triangle', 520, 0.15, 0.5, 0.08, 900); } 
         function playWinSound() {
-            if (!audioCtx) return;
-            const freqs = [523.25, 659.25, 783.99, 1046.50];
+            if (!audioCtx) return; 
+            const freqs = [523.25, 659.25, 783.99, 1046.50]; 
             freqs.forEach((freq, i) => {
-                setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.4), i * 120);
+                setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.4), i * 120); 
             });
         }
+
         // --- MP3 Background Music Control ---
         function playMp3BGM(restart = false) {
             if (!bgmAudioElement) {
                 console.error("Cannot play BGM: audio element not found.");
                 return;
             }
+
             if (!bgmEnabled) {
                 console.log("BGM play call skipped: BGM is disabled (bgmEnabled=false).");
                 if (!bgmAudioElement.paused) {
-                    stopMp3BGM();
+                    stopMp3BGM(); 
                 }
                 return;
             }
+
             if (restart) {
                 bgmAudioElement.currentTime = 0;
                 console.log("BGM restart requested: currentTime set to 0. Attempting to play.");
             }
+            
             // Attempt to play if BGM is enabled and ( (restart was requested) OR (it's currently paused) )
             if (bgmEnabled && (restart || bgmAudioElement.paused)) {
                 const playPromise = bgmAudioElement.play();
@@ -334,20 +320,22 @@
                         console.warn(`MP3 BGM ${restart ? '(re)start' : 'resume'} failed. Error:`, error);
                     });
                 } else {
-                    console.warn("bgmAudioElement.play() did not return a promise.");
+                     console.warn("bgmAudioElement.play() did not return a promise.");
                 }
             } else if (bgmEnabled && !bgmAudioElement.paused && !restart) {
-                console.log("BGM play call skipped: BGM is already playing and restart not requested.");
+                 console.log("BGM play call skipped: BGM is already playing and restart not requested.");
             }
         }
-        function stopMp3BGM() {
+
+        function stopMp3BGM() { 
             if (bgmAudioElement) {
                 bgmAudioElement.pause();
                 console.log("MP3 BGM stopped (pause() called).");
             } else {
-                console.error("Cannot stop BGM: audio element not found.");
+                 console.error("Cannot stop BGM: audio element not found.");
             }
         }
+
         function updateBGMButton() {
             if (toggleBGMBtn) {
                 toggleBGMBtn.textContent = `BGM: ${bgmEnabled ? '开' : '关'}`;
@@ -355,29 +343,32 @@
                 console.error("Cannot update BGM button text: toggleBGMBtn element not found.");
             }
         }
-        if (toggleBGMBtn) {
+        
+        if (toggleBGMBtn) { 
             toggleBGMBtn.addEventListener('click', () => {
                 console.log("BGM button clicked. Current bgmEnabled state BEFORE toggle:", bgmEnabled);
-                const wasEnabled = bgmEnabled;
-                bgmEnabled = !bgmEnabled;
+                const wasEnabled = bgmEnabled; 
+                bgmEnabled = !bgmEnabled; 
                 console.log("bgmEnabled toggled. New state:", bgmEnabled);
+
                 if (bgmEnabled) {
                     console.log("Calling playMp3BGM() from button click (BGM enabled). Restart if it was previously off: ", !wasEnabled);
-                    playMp3BGM(!wasEnabled);
+                    playMp3BGM(!wasEnabled); 
                 } else {
                     console.log("Calling stopMp3BGM() from button click (BGM disabled).");
                     stopMp3BGM();
                 }
-                updateBGMButton();
+                updateBGMButton(); 
                 console.log("BGM button text updated after click.");
             });
         } else {
             console.error("Could not add event listener: toggleBGMBtn element not found.");
         }
+        
         // --- Pathfinding Logic ---
         function isCellEmptyOnBoard(r, c, targetBoard) {
             if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false;
-            if (!targetBoard[r]) return false;
+            if (!targetBoard[r]) return false; 
             return targetBoard[r][c] === EMPTY_TILE;
         }
         function isLineClearOnBoard(p1, p2, isHorizontal, targetBoard) {
@@ -408,11 +399,13 @@
             }
             return null;
         }
+
         // --- Solvability Check (Function definition was missing) ---
         function isSolvable(boardToCheck) {
             // Create a deep copy of the board to simulate moves without affecting the actual game board
             let tempBoard = JSON.parse(JSON.stringify(boardToCheck));
             let currentTiles = [];
+
             // Get all non-empty tiles from the game area (excluding border)
             for (let r_idx = 1; r_idx <= GAME_ROWS; r_idx++) {
                 for (let c_idx = 1; c_idx <= GAME_COLS; c_idx++) {
@@ -421,16 +414,20 @@
                     }
                 }
             }
+
             if (currentTiles.length === 0) return true; // Board is already empty, thus solvable
+
             // Try to find and remove pairs until no more moves can be made or all tiles are cleared
             while (true) {
                 let madeAMove = false;
                 if (currentTiles.length === 0) return true; // All tiles cleared
+
                 // Iterate through all possible pairs of remaining tiles
                 for (let i = 0; i < currentTiles.length; i++) {
                     for (let j = i + 1; j < currentTiles.length; j++) {
                         const p1 = currentTiles[i];
                         const p2 = currentTiles[j];
+
                         if (p1.type === p2.type) { // Check if tiles are of the same type
                             const path = findPathOnBoard(p1, p2, tempBoard); // Use the tempBoard for pathfinding
                             if (path) {
@@ -439,7 +436,7 @@
                                 tempBoard[p2.r][p2.c] = EMPTY_TILE;
                                 madeAMove = true;
                                 // Remove tiles from currentTiles list (splice from the end first to avoid index issues)
-                                currentTiles.splice(j, 1);
+                                currentTiles.splice(j, 1); 
                                 currentTiles.splice(i, 1);
                                 break; // Break inner loop to re-evaluate from the start of currentTiles
                             }
@@ -450,21 +447,25 @@
                 if (!madeAMove) return false; // No more moves possible, but tiles remain
             }
         }
+
+
         // --- Game Logic ---
         function initGame() {
             console.log("Initializing game...");
             stopTimer();
-            isProcessingMatch = false;
+            isProcessingMatch = false; 
+            
             if (bgmAudioElement) {
                 if (bgmEnabled) {
                     console.log("initGame: BGM is enabled. Requesting restart.");
-                    playMp3BGM(true);
-                } else if (!bgmAudioElement.paused) {
+                    playMp3BGM(true); 
+                } else if (!bgmAudioElement.paused) { 
                     console.log("initGame: BGM is disabled but was playing. Stopping it.");
                     stopMp3BGM();
                 }
             }
-            updateBGMButton();
+            updateBGMButton(); 
+
             score = 0; time = 0; tilesRemaining = GAME_ROWS * GAME_COLS;
             updateScoreDisplay(); updateTimeDisplay(); updateTilesRemainingDisplay();
             selectedTile = null; clearPathCanvas();
@@ -480,13 +481,14 @@
                 let tileIndex = 0; for (let r = 1; r <= GAME_ROWS; r++) for (let c = 1; c <= GAME_COLS; c++) generatedBoardCandidate[r][c] = tilesToPlace[tileIndex++];
                 solvable = isSolvable(generatedBoardCandidate); // This was the line causing the error
                 retries++;
-                if (solvable) console.log(`Solvable board found after ${retries} retries.`); else if (retries % 20 === 0) console.log(`Retry ${retries}... still searching.`);
+                if(solvable) console.log(`Solvable board found after ${retries} retries.`); else if (retries % 20 === 0) console.log(`Retry ${retries}... still searching.`);
             } while (!solvable && retries < MAX_RETRIES);
             if (!solvable) { console.warn(`Could not generate solvable board after ${MAX_RETRIES} retries.`); showMessage("警告：棋盘可能无解。请尝试新游戏。"); }
             board = generatedBoardCandidate; renderBoard(); startTimer(); console.log("Game initialized.");
         }
+
         function renderBoard() {
-            gameBoardElement.innerHTML = '';
+            gameBoardElement.innerHTML = ''; 
             setTimeout(() => {
                 const boardRect = gameBoardElement.getBoundingClientRect();
                 if (boardRect.width > 0 && boardRect.height > 0) {
@@ -496,13 +498,15 @@
                     canvasCtx.lineWidth = 3;
                     canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)';
                 }
-            }, 50);
+            }, 50); 
+
             for (let r = 1; r <= GAME_ROWS; r++) {
                 for (let c = 1; c <= GAME_COLS; c++) {
                     const tileElement = document.createElement('div');
                     tileElement.classList.add('tile');
-                    tileElement.dataset.r = r;
-                    tileElement.dataset.c = c;
+                    tileElement.dataset.r = r; 
+                    tileElement.dataset.c = c; 
+
                     if (board[r][c] === EMPTY_TILE) {
                         tileElement.classList.add('empty');
                     } else {
@@ -514,111 +518,131 @@
                 }
             }
         }
+
         function handleTileClick(event) {
-            if (isProcessingMatch) return;
+            if (isProcessingMatch) return; 
             playClickSound();
+
             const clickedElement = event.currentTarget;
             if (clickedElement.classList.contains('empty') || clickedElement.classList.contains('disappearing')) return;
+
             const r = parseInt(clickedElement.dataset.r);
             const c = parseInt(clickedElement.dataset.c);
+
             if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
                 clickedElement.classList.remove('selected');
                 selectedTile = null;
                 return;
             }
             clickedElement.classList.add('selected');
-            if (!selectedTile) {
+
+            if (!selectedTile) { 
                 selectedTile = { r, c, element: clickedElement, type: board[r][c] };
-            } else {
+            } else { 
                 const currentClickedTile = { r, c, element: clickedElement, type: board[r][c] };
-                isProcessingMatch = true;
-                const firstTileType = selectedTile.type;
-                const firstTileElementForEffects = selectedTile.element;
-                if (firstTileType === currentClickedTile.type) {
-                    const path = findPathOnBoard(selectedTile, currentClickedTile, board);
+                isProcessingMatch = true; 
+
+                const firstTileType = selectedTile.type; 
+                const firstTileElementForEffects = selectedTile.element; 
+
+                if (firstTileType === currentClickedTile.type) { 
+                    const path = findPathOnBoard(selectedTile, currentClickedTile, board); 
                     if (path) {
                         playMatchSound();
                         drawPath(path);
-                        const firstTileToRemove = selectedTile.element;
+
+                        const firstTileToRemove = selectedTile.element; 
                         const secondTileToRemove = currentClickedTile.element;
                         const r1 = selectedTile.r, c1 = selectedTile.c;
                         const r2 = currentClickedTile.r, c2 = currentClickedTile.c;
+
                         firstTileToRemove.classList.add('disappearing');
                         secondTileToRemove.classList.add('disappearing');
-                        firstTileToRemove.classList.remove('selected');
+                        firstTileToRemove.classList.remove('selected'); 
                         secondTileToRemove.classList.remove('selected');
+
                         let animationsCompleted = 0;
                         const onAnimationEnd = () => {
                             animationsCompleted++;
-                            if (animationsCompleted === 2) {
+                            if (animationsCompleted === 2) { 
                                 board[r1][c1] = EMPTY_TILE;
                                 board[r2][c2] = EMPTY_TILE;
+
                                 [firstTileToRemove, secondTileToRemove].forEach(el => {
-                                    el.innerHTML = '';
+                                    el.innerHTML = ''; 
                                     el.classList.add('empty');
-                                    el.classList.remove('disappearing');
+                                    el.classList.remove('disappearing'); 
                                     el.removeEventListener('click', handleTileClick);
                                 });
+
                                 score += 10;
                                 tilesRemaining -= 2;
                                 updateScoreDisplay();
                                 updateTilesRemainingDisplay();
-                                setTimeout(() => clearPathCanvas(), 50);
+
+                                setTimeout(() => clearPathCanvas(), 50); 
+
                                 if (tilesRemaining === 0) {
                                     stopTimer();
-                                    stopMp3BGM();
+                                    stopMp3BGM(); 
                                     playWinSound();
                                     showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
                                 }
-                                isProcessingMatch = false;
+                                isProcessingMatch = false; 
                             }
                         };
                         firstTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
                         secondTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
+
                     } else {
-                        if (firstTileElementForEffects) {
-                            firstTileElementForEffects.classList.add('shaking');
+                        if (firstTileElementForEffects) { 
+                           firstTileElementForEffects.classList.add('shaking');
                         } else {
                             console.error("selectedTile.element was null before shaking (same type). selectedTile:", selectedTile);
                         }
                         currentClickedTile.element.classList.add('shaking');
-                        if ('vibrate' in navigator) navigator.vibrate(150);
-                        const firstElTimeout = firstTileElementForEffects;
-                        const secondElTimeout = currentClickedTile.element;
+                        if ('vibrate' in navigator) navigator.vibrate(150); 
+
+                        const firstElTimeout = firstTileElementForEffects; 
+                        const secondElTimeout = currentClickedTile.element; 
+
                         setTimeout(() => {
                             if (firstElTimeout) firstElTimeout.classList.remove('selected', 'shaking');
                             if (secondElTimeout) secondElTimeout.classList.remove('selected', 'shaking');
                             isProcessingMatch = false;
-                        }, 500);
+                        }, 500); 
                     }
                 } else {
-                    if (firstTileElementForEffects) {
+                     if (firstTileElementForEffects) { 
                         firstTileElementForEffects.classList.add('shaking');
                     } else {
                         console.error("selectedTile.element was null before shaking (different types). selectedTile:", selectedTile);
                     }
                     currentClickedTile.element.classList.add('shaking');
                     if ('vibrate' in navigator) navigator.vibrate(150);
-                    const firstElTimeout_diff = firstTileElementForEffects;
-                    const secondElTimeout_diff = currentClickedTile.element;
+                    
+                    const firstElTimeout_diff = firstTileElementForEffects; 
+                    const secondElTimeout_diff = currentClickedTile.element; 
+
                     setTimeout(() => {
                         if (firstElTimeout_diff) firstElTimeout_diff.classList.remove('selected', 'shaking');
                         if (secondElTimeout_diff) secondElTimeout_diff.classList.remove('selected', 'shaking');
                         isProcessingMatch = false;
                     }, 500);
                 }
-                selectedTile = null;
+                selectedTile = null; 
             }
         }
+
         function drawPath(pathPoints) {
             if (!pathPoints || pathPoints.length < 2) return;
-            clearPathCanvas();
+            clearPathCanvas(); 
             const firstTileElement = gameBoardElement.querySelector(`.tile[data-r="${pathPoints[0].r}"][data-c="${pathPoints[0].c}"]`);
             if (!firstTileElement) { console.error("Cannot find first tile for path drawing"); return; }
             const tileWidth = firstTileElement.offsetWidth;
             const tileHeight = firstTileElement.offsetHeight;
             const gameBoardStyle = getComputedStyle(gameBoardElement);
-            const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2);
+            const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2); 
             canvasCtx.beginPath();
             for (let i = 0; i < pathPoints.length; i++) {
                 const point = pathPoints[i];
@@ -629,22 +653,26 @@
             }
             canvasCtx.stroke();
         }
+
         function clearPathCanvas() {
-            if (lineCanvas.width > 0 && lineCanvas.height > 0) {
+            if (lineCanvas.width > 0 && lineCanvas.height > 0) { 
                 canvasCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
             }
         }
+
         function updateScoreDisplay() { scoreElement.textContent = score; }
         function updateTimeDisplay() { timeElement.textContent = time; }
         function updateTilesRemainingDisplay() { tilesRemainingElement.textContent = tilesRemaining; }
+
         function startTimer() {
-            stopTimer();
+            stopTimer(); 
             timerInterval = setInterval(() => {
                 time++;
                 updateTimeDisplay();
             }, 1000);
         }
         function stopTimer() { clearInterval(timerInterval); }
+
         function showMessage(message) {
             messageText.textContent = message;
             messageBox.classList.remove('hidden');
@@ -652,23 +680,26 @@
         messageOkBtn.addEventListener('click', () => {
             messageBox.classList.add('hidden');
         });
+
         newGameBtn.addEventListener('click', initGame);
+
         window.addEventListener('resize', () => {
-            if (gameBoardElement.children.length > 0) {
-                setTimeout(() => {
+            if (gameBoardElement.children.length > 0) { 
+                 setTimeout(() => { 
                     const boardRect = gameBoardElement.getBoundingClientRect();
-                    if (boardRect.width > 0 && boardRect.height > 0) {
+                     if (boardRect.width > 0 && boardRect.height > 0) {
                         const computedStyle = getComputedStyle(gameBoardElement);
                         lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
                         lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
-                        clearPathCanvas();
+                        clearPathCanvas(); 
                     }
                 }, 100);
             }
         });
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
+                navigator.serviceWorker.register('./sw.js') 
                     .then(registration => {
                         console.log('ServiceWorker registered successfully with scope: ', registration.scope);
                     })
@@ -677,8 +708,9 @@
                     });
             });
         }
-        updateBGMButton();
-        initGame();
+
+        updateBGMButton(); 
+        initGame(); 
     </script>
 </body>
 </html>
