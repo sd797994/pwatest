@@ -185,10 +185,10 @@
         // --- Game Configuration ---
         const GAME_ROWS = 8;
         const GAME_COLS = 10;
-        const BOARD_ROWS = GAME_ROWS + 2; 
-        const BOARD_COLS = GAME_COLS + 2; 
+        const BOARD_ROWS = GAME_ROWS + 2; // For border/padding
+        const BOARD_COLS = GAME_COLS + 2; // For border/padding
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "�", "🦚"];
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "�", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦉", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -197,12 +197,14 @@
         let time = 0;
         let timerInterval = null;
         let tilesRemaining = 0;
-        let bgmEnabled = true; 
-        let isProcessingMatch = false; 
+        let bgmEnabled = true; // User's preference for BGM
+        let isProcessingMatch = false; // To prevent multiple actions during match processing
 
         // --- Web Audio API Setup (for sound effects) ---
-        let audioCtx = null; 
+        let audioCtx = null; // AudioContext for sound effects
 
+        // Initialize AudioContext and BGM on first user interaction (click/touch)
+        // This is crucial for browsers' autoplay policies.
         function initAudioAndBGM() { 
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
                 try {
@@ -213,6 +215,7 @@
                 }
             }
 
+            // Try to play BGM if it's enabled and was paused (e.g., due to autoplay restrictions)
             if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused) {
                 console.log("Attempting to play BGM from initAudioAndBGM after user interaction.");
                 playMp3BGM(); 
@@ -236,12 +239,14 @@
         const messageOkBtn = document.getElementById('message-ok-btn');
         const bgmAudioElement = document.getElementById('bgm-audio'); 
         
+        // Set initial BGM volume and log BGM element status
         if (bgmAudioElement) {
-            bgmAudioElement.volume = 0.2; 
+            bgmAudioElement.volume = 0.2; // Set a softer volume for BGM
             console.log(`Initial BGM volume set to: ${bgmAudioElement.volume}`);
         }
         console.log("DOM Elements: BGM Audio Element:", bgmAudioElement, "Toggle BGM Button:", toggleBGMBtn);
 
+        // Add event listeners for BGM audio element for debugging
         if (bgmAudioElement) {
             bgmAudioElement.addEventListener('loadedmetadata', () => {
                 console.log(`BGM Event: loadedmetadata - Duration: ${bgmAudioElement.duration} seconds`);
@@ -251,42 +256,43 @@
             bgmAudioElement.addEventListener('play', () => { console.log("BGM Event: play"); });
             bgmAudioElement.addEventListener('playing', () => { console.log("BGM Event: playing"); });
             bgmAudioElement.addEventListener('pause', () => { console.log("BGM Event: pause"); });
-            bgmAudioElement.addEventListener('ended', () => { console.log("BGM Event: ended"); });
+            bgmAudioElement.addEventListener('ended', () => { console.log("BGM Event: ended (loop should restart it)"); });
             bgmAudioElement.addEventListener('error', (e) => {
                 console.error("BGM Event: error - An error occurred.");
                 if (bgmAudioElement.error) console.error(`Error code: ${bgmAudioElement.error.code}, Message: ${bgmAudioElement.error.message}`);
                 else console.error("BGM error object not available.", e);
             });
             bgmAudioElement.addEventListener('stalled', () => { console.warn("BGM Event: stalled"); });
-            bgmAudioElement.addEventListener('suspend', () => { console.log("BGM Event: suspend"); });
-            bgmAudioElement.addEventListener('waiting', () => { console.log("BGM Event: waiting"); });
+            bgmAudioElement.addEventListener('suspend', () => { console.log("BGM Event: suspend (audio loading suspended)"); });
+            bgmAudioElement.addEventListener('waiting', () => { console.log("BGM Event: waiting (playback paused due to temporary lack of data)"); });
         }
 
+        // --- Sound Effects (using Web Audio API) ---
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
-            if (!audioCtx || !audioCtx.destination) return; 
-            const sfxVolume = 0.5; 
+            if (!audioCtx || !audioCtx.destination) return; // AudioContext not initialized or unusable
+            const sfxVolume = 0.5; // Master volume for sound effects
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            oscillator.type = type;
+            oscillator.type = type; // 'sine', 'square', 'sawtooth', 'triangle'
             oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-            if (freqEndTime && freqEndValue) {
+            if (freqEndTime && freqEndValue) { // For pitch bend effects
                 oscillator.frequency.exponentialRampToValueAtTime(freqEndValue, audioCtx.currentTime + freqEndTime);
             }
-            gainNode.gain.setValueAtTime(sfxVolume, audioCtx.currentTime); 
-            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            gainNode.gain.setValueAtTime(sfxVolume * volume, audioCtx.currentTime); // Apply volume
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration); // Fade out
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             oscillator.start(audioCtx.currentTime);
             oscillator.stop(audioCtx.currentTime + duration);
         }
 
-        function playClickSound() { playSoundEffect('sine', 700, 0.08, 0.4); } 
-        function playMatchSound() { playSoundEffect('triangle', 520, 0.15, 0.5, 0.08, 900); } 
+        function playClickSound() { playSoundEffect('sine', 700, 0.08, 0.4); } // Short, high-pitched click
+        function playMatchSound() { playSoundEffect('triangle', 520, 0.15, 0.5, 0.08, 900); } // Ascending tone for match
         function playWinSound() {
-            if (!audioCtx) return; 
-            const freqs = [523.25, 659.25, 783.99, 1046.50]; 
+            if (!audioCtx) return; // AudioContext not initialized
+            const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 - a cheerful arpeggio
             freqs.forEach((freq, i) => {
-                setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.4), i * 120); 
+                setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.4), i * 120); // Staggered notes
             });
         }
 
@@ -297,9 +303,9 @@
                 return;
             }
 
-            if (!bgmEnabled) {
+            if (!bgmEnabled) { // If user has disabled BGM globally
                 console.log("BGM play call skipped: BGM is disabled (bgmEnabled=false).");
-                if (!bgmAudioElement.paused) {
+                if (!bgmAudioElement.paused) { // If it was somehow playing, stop it
                     stopMp3BGM(); 
                 }
                 return;
@@ -311,19 +317,25 @@
             }
             
             // Attempt to play if BGM is enabled and ( (restart was requested) OR (it's currently paused) )
-            if (bgmEnabled && (restart || bgmAudioElement.paused)) {
+            // Also check if document is visible, to avoid issues with background tab autoplay restrictions
+            if (bgmEnabled && (restart || bgmAudioElement.paused) && !document.hidden) {
                 const playPromise = bgmAudioElement.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
                         console.log(`MP3 BGM ${restart ? '(re)started' : 'resumed'} successfully.`);
                     }).catch(error => {
-                        console.warn(`MP3 BGM ${restart ? '(re)start' : 'resume'} failed. Error:`, error);
+                        // Autoplay was prevented. This is common. User interaction will enable it via initAudioAndBGM.
+                        console.warn(`MP3 BGM ${restart ? '(re)start' : 'resume'} failed. This is often due to autoplay policies. Error:`, error);
                     });
                 } else {
-                     console.warn("bgmAudioElement.play() did not return a promise.");
+                     // Fallback for browsers that don't return a promise (older ones)
+                     console.warn("bgmAudioElement.play() did not return a promise. Attempting play directly.");
+                     // bgmAudioElement.play(); // This might throw an error if autoplay is blocked, already handled by catch if promise exists
                 }
             } else if (bgmEnabled && !bgmAudioElement.paused && !restart) {
                  console.log("BGM play call skipped: BGM is already playing and restart not requested.");
+            } else if (document.hidden) {
+                console.log("BGM play call skipped: Document is hidden.");
             }
         }
 
@@ -344,6 +356,7 @@
             }
         }
         
+        // Event listener for the BGM toggle button
         if (toggleBGMBtn) { 
             toggleBGMBtn.addEventListener('click', () => {
                 console.log("BGM button clicked. Current bgmEnabled state BEFORE toggle:", bgmEnabled);
@@ -353,7 +366,7 @@
 
                 if (bgmEnabled) {
                     console.log("Calling playMp3BGM() from button click (BGM enabled). Restart if it was previously off: ", !wasEnabled);
-                    playMp3BGM(!wasEnabled); 
+                    playMp3BGM(!wasEnabled); // Play, and restart if it was just turned on
                 } else {
                     console.log("Calling stopMp3BGM() from button click (BGM disabled).");
                     stopMp3BGM();
@@ -366,41 +379,91 @@
         }
         
         // --- Pathfinding Logic ---
+        // Helper: Check if a cell is empty on the (padded) board
         function isCellEmptyOnBoard(r, c, targetBoard) {
-            if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false;
-            if (!targetBoard[r]) return false; 
+            if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false; // Out of bounds
+            if (!targetBoard[r]) return false; // Row doesn't exist (shouldn't happen with proper board init)
             return targetBoard[r][c] === EMPTY_TILE;
         }
+        // Helper: Check if a straight line (horizontal or vertical) is clear between two points
         function isLineClearOnBoard(p1, p2, isHorizontal, targetBoard) {
             if (isHorizontal) {
                 const r = p1.r; const minC = Math.min(p1.c, p2.c); const maxC = Math.max(p1.c, p2.c);
                 for (let c = minC + 1; c < maxC; c++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
-            } else {
+            } else { // Vertical
                 const c = p1.c; const minR = Math.min(p1.r, p2.r); const maxR = Math.max(p1.r, p2.r);
                 for (let r = minR + 1; r < maxR; r++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
             }
             return true;
         }
+        // Main pathfinding function: checks for 0, 1, or 2 turns
         function findPathOnBoard(p1, p2, targetBoard) {
-            if (p1.r === p2.r && p1.c === p2.c) return null; if (p1.type !== p2.type) return null;
+            if (p1.r === p2.r && p1.c === p2.c) return null; // Same tile
+            if (p1.type !== p2.type) return null; // Different types
+
+            // 0 turns (direct line)
             if (p1.r === p2.r && isLineClearOnBoard(p1, p2, true, targetBoard)) return [p1, p2];
             if (p1.c === p2.c && isLineClearOnBoard(p1, p2, false, targetBoard)) return [p1, p2];
-            const c1 = { r: p1.r, c: p2.c }; if (isCellEmptyOnBoard(c1.r, c1.c, targetBoard) && isLineClearOnBoard(p1, c1, true, targetBoard) && isLineClearOnBoard(c1, p2, false, targetBoard)) return [p1, c1, p2];
-            const c2 = { r: p2.r, c: p1.c }; if (isCellEmptyOnBoard(c2.r, c2.c, targetBoard) && isLineClearOnBoard(p1, c2, false, targetBoard) && isLineClearOnBoard(c2, p2, true, targetBoard)) return [p1, c2, p2];
+
+            // 1 turn
+            const corner1 = { r: p1.r, c: p2.c }; // Horizontal then Vertical
+            if (isCellEmptyOnBoard(corner1.r, corner1.c, targetBoard) && isLineClearOnBoard(p1, corner1, true, targetBoard) && isLineClearOnBoard(corner1, p2, false, targetBoard)) return [p1, corner1, p2];
+            const corner2 = { r: p2.r, c: p1.c }; // Vertical then Horizontal
+            if (isCellEmptyOnBoard(corner2.r, corner2.c, targetBoard) && isLineClearOnBoard(p1, corner2, false, targetBoard) && isLineClearOnBoard(corner2, p2, true, targetBoard)) return [p1, corner2, p2];
+
+            // 2 turns (iterating through all possible intermediate points on the padded board)
+            // Check paths extending horizontally from p1 first
             for (let ci = 0; ci < BOARD_COLS; ci++) {
-                const pi = { r: p1.r, c: ci }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, true, targetBoard)) continue;
-                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.c === p1.c) && (pic1.r === p1.r && pic1.c === p2.c))) return [p1, pi, pic1, p2];
-                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p2.r && pic2.c === p1.c))) return [p1, pi, pic2, p2];
+                const intermediateH = { r: p1.r, c: ci }; // Intermediate point on same row as p1
+                if (!isCellEmptyOnBoard(intermediateH.r, intermediateH.c, targetBoard) && !(intermediateH.r === p2.r && intermediateH.c === p2.c)) continue; // Skip if not empty and not p2
+                if (!isLineClearOnBoard(p1, intermediateH, true, targetBoard)) continue; // Path from p1 to intermediateH must be clear
+
+                // Now try to connect intermediateH to p2 with one turn
+                const cornerH_V = { r: intermediateH.r, c: p2.c }; // (p1.r, ci) -> (p1.r, p2.c) -> (p2.r, p2.c)
+                if ((isCellEmptyOnBoard(cornerH_V.r, cornerH_V.c, targetBoard) || (cornerH_V.r === p2.r && cornerH_V.c === p2.c)) && 
+                    isLineClearOnBoard(intermediateH, cornerH_V, true, targetBoard) && 
+                    isLineClearOnBoard(cornerH_V, p2, false, targetBoard)) {
+                    // Avoid redundant paths like p1 -> p1_col_p2_col -> p2 if intermediateH is on p1's column and cornerH_V is p1 (already covered by 1 turn)
+                    if (!((intermediateH.r === p1.r && intermediateH.c === p1.c) && (cornerH_V.r === p1.r && cornerH_V.c === p2.c))) {
+                         return [p1, intermediateH, cornerH_V, p2];
+                    }
+                }
+                const cornerV_H = { r: p2.r, c: intermediateH.c }; // (p1.r, ci) -> (p2.r, ci) -> (p2.r, p2.c)
+                 if ((isCellEmptyOnBoard(cornerV_H.r, cornerV_H.c, targetBoard) || (cornerV_H.r === p2.r && cornerV_H.c === p2.c)) && 
+                    isLineClearOnBoard(intermediateH, cornerV_H, false, targetBoard) && 
+                    isLineClearOnBoard(cornerV_H, p2, true, targetBoard)) {
+                     if (!((intermediateH.c === p1.c && intermediateH.c === p2.c) && (cornerV_H.r === p2.r && cornerV_H.c === p1.c))) { // Avoid redundant paths
+                        return [p1, intermediateH, cornerV_H, p2];
+                     }
+                }
             }
+            // Check paths extending vertically from p1
             for (let ri = 0; ri < BOARD_ROWS; ri++) {
-                const pi = { r: ri, c: p1.c }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, false, targetBoard)) continue;
-                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.r === p2.r) && (pic1.c === p1.c && pic1.c === p2.c))) return [p1, pi, pic1, p2];
-                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p1.r && pic2.r === p2.r))) return [p1, pi, pic2, p2];
+                const intermediateV = { r: ri, c: p1.c }; // Intermediate point on same col as p1
+                if (!isCellEmptyOnBoard(intermediateV.r, intermediateV.c, targetBoard) && !(intermediateV.r === p2.r && intermediateV.c === p2.c)) continue;
+                if (!isLineClearOnBoard(p1, intermediateV, false, targetBoard)) continue;
+
+                const cornerH_V = { r: intermediateV.r, c: p2.c }; // (ri, p1.c) -> (ri, p2.c) -> (p2.r, p2.c)
+                if ((isCellEmptyOnBoard(cornerH_V.r, cornerH_V.c, targetBoard) || (cornerH_V.r === p2.r && cornerH_V.c === p2.c)) && 
+                    isLineClearOnBoard(intermediateV, cornerH_V, true, targetBoard) && 
+                    isLineClearOnBoard(cornerH_V, p2, false, targetBoard)) {
+                     if (!((intermediateV.r === p1.r && intermediateV.r === p2.r) && (cornerH_V.c === p1.c && cornerH_V.c === p2.c))) { // Avoid redundant paths
+                        return [p1, intermediateV, cornerH_V, p2];
+                     }
+                }
+                const cornerV_H = { r: p2.r, c: intermediateV.c }; // (ri, p1.c) -> (p2.r, p1.c) -> (p2.r, p2.c)
+                if ((isCellEmptyOnBoard(cornerV_H.r, cornerV_H.c, targetBoard) || (cornerV_H.r === p2.r && cornerV_H.c === p2.c)) && 
+                    isLineClearOnBoard(intermediateV, cornerV_H, false, targetBoard) && 
+                    isLineClearOnBoard(cornerV_H, p2, true, targetBoard)) {
+                     if (!((intermediateV.c === p1.c && intermediateV.c === p2.c) && (cornerV_H.r === p1.r && cornerV_H.r === p2.r))) { // Avoid redundant paths
+                        return [p1, intermediateV, cornerV_H, p2];
+                     }
+                }
             }
-            return null;
+            return null; // No path found
         }
 
-        // --- Solvability Check (Function definition was missing) ---
+        // --- Solvability Check ---
         function isSolvable(boardToCheck) {
             // Create a deep copy of the board to simulate moves without affecting the actual game board
             let tempBoard = JSON.parse(JSON.stringify(boardToCheck));
@@ -455,63 +518,90 @@
             stopTimer();
             isProcessingMatch = false; 
             
+            // Handle BGM based on user preference and game start
             if (bgmAudioElement) {
                 if (bgmEnabled) {
                     console.log("initGame: BGM is enabled. Requesting restart.");
-                    playMp3BGM(true); 
-                } else if (!bgmAudioElement.paused) { 
+                    playMp3BGM(true); // Restart BGM for new game if enabled
+                } else if (!bgmAudioElement.paused) { // If BGM is disabled but was playing (e.g. from previous state)
                     console.log("initGame: BGM is disabled but was playing. Stopping it.");
                     stopMp3BGM();
                 }
             }
-            updateBGMButton(); 
+            updateBGMButton(); // Ensure button text reflects current BGM state
 
             score = 0; time = 0; tilesRemaining = GAME_ROWS * GAME_COLS;
             updateScoreDisplay(); updateTimeDisplay(); updateTilesRemainingDisplay();
             selectedTile = null; clearPathCanvas();
+
             let generatedBoardCandidate, solvable = false, retries = 0; const MAX_RETRIES = 100;
             console.log("Attempting to generate a solvable board...");
             do {
                 let tilesToPlace = []; const numPairs = (GAME_ROWS * GAME_COLS) / 2;
                 if (EMOJIS_POOL.length < numPairs) { console.error("Not enough emojis!"); showMessage("错误：表情符号不足！"); return; }
-                const gameEmojis = EMOJIS_POOL.slice(0, numPairs);
+                
+                // Shuffle EMOJIS_POOL and pick numPairs
+                const shuffledEmojis = [...EMOJIS_POOL].sort(() => 0.5 - Math.random());
+                const gameEmojis = shuffledEmojis.slice(0, numPairs);
+
                 for (let i = 0; i < numPairs; i++) tilesToPlace.push(gameEmojis[i], gameEmojis[i]);
+                // Shuffle tilesToPlace (Fisher-Yates shuffle)
                 for (let i = tilesToPlace.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[tilesToPlace[i], tilesToPlace[j]] = [tilesToPlace[j], tilesToPlace[i]]; }
+                
                 generatedBoardCandidate = Array(BOARD_ROWS).fill(null).map(() => Array(BOARD_COLS).fill(EMPTY_TILE));
-                let tileIndex = 0; for (let r = 1; r <= GAME_ROWS; r++) for (let c = 1; c <= GAME_COLS; c++) generatedBoardCandidate[r][c] = tilesToPlace[tileIndex++];
-                solvable = isSolvable(generatedBoardCandidate); // This was the line causing the error
+                let tileIndex = 0; 
+                for (let r = 1; r <= GAME_ROWS; r++) { // Place tiles only in the game area (not border)
+                    for (let c = 1; c <= GAME_COLS; c++) {
+                        generatedBoardCandidate[r][c] = tilesToPlace[tileIndex++];
+                    }
+                }
+                solvable = isSolvable(generatedBoardCandidate); 
                 retries++;
-                if(solvable) console.log(`Solvable board found after ${retries} retries.`); else if (retries % 20 === 0) console.log(`Retry ${retries}... still searching.`);
+                if(solvable) console.log(`Solvable board found after ${retries} retries.`); else if (retries % 20 === 0) console.log(`Retry ${retries}... still searching for a solvable board.`);
             } while (!solvable && retries < MAX_RETRIES);
-            if (!solvable) { console.warn(`Could not generate solvable board after ${MAX_RETRIES} retries.`); showMessage("警告：棋盘可能无解。请尝试新游戏。"); }
-            board = generatedBoardCandidate; renderBoard(); startTimer(); console.log("Game initialized.");
+
+            if (!solvable) { 
+                console.warn(`Could not generate solvable board after ${MAX_RETRIES} retries. The game might be very hard or impossible.`);
+                showMessage("警告：棋盘可能无解。请尝试新游戏。"); 
+                // Fallback: use the last generated board even if not proven solvable, or implement a simpler generation.
+            }
+            board = generatedBoardCandidate; 
+            renderBoard(); 
+            startTimer(); 
+            console.log("Game initialized.");
         }
 
         function renderBoard() {
-            gameBoardElement.innerHTML = ''; 
-            setTimeout(() => {
+            gameBoardElement.innerHTML = ''; // Clear previous board
+            // Resize canvas after board elements are in DOM and sized
+            setTimeout(() => { // Delay to allow layout to settle
                 const boardRect = gameBoardElement.getBoundingClientRect();
                 if (boardRect.width > 0 && boardRect.height > 0) {
                     const computedStyle = getComputedStyle(gameBoardElement);
+                    // Calculate canvas size based on game board's content area (excluding padding)
                     lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
                     lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
-                    canvasCtx.lineWidth = 3;
-                    canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)';
+                    canvasCtx.lineWidth = 3; // Line thickness for path
+                    canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)'; // Bright pink for path
+                } else {
+                    console.warn("Game board rect has no dimensions, canvas not sized.");
                 }
-            }, 50); 
+            }, 50); // Small delay
 
-            for (let r = 1; r <= GAME_ROWS; r++) {
+            // Create and append tile elements
+            for (let r = 1; r <= GAME_ROWS; r++) { // Iterate through game area, not padded board
                 for (let c = 1; c <= GAME_COLS; c++) {
                     const tileElement = document.createElement('div');
                     tileElement.classList.add('tile');
-                    tileElement.dataset.r = r; 
-                    tileElement.dataset.c = c; 
+                    tileElement.dataset.r = r; // Store actual game row (1-indexed)
+                    tileElement.dataset.c = c; // Store actual game col (1-indexed)
 
                     if (board[r][c] === EMPTY_TILE) {
                         tileElement.classList.add('empty');
                     } else {
                         tileElement.textContent = board[r][c];
                         tileElement.addEventListener('click', handleTileClick);
+                        // Add touchstart for mobile, prevent default to avoid zoom/scroll interference, but ensure click still fires
                         tileElement.addEventListener('touchstart', (e) => { e.preventDefault(); handleTileClick(e); }, { passive: false });
                     }
                     gameBoardElement.appendChild(tileElement);
@@ -520,15 +610,16 @@
         }
 
         function handleTileClick(event) {
-            if (isProcessingMatch) return; 
+            if (isProcessingMatch) return; // Don't process clicks if a match is animating
             playClickSound();
 
-            const clickedElement = event.currentTarget;
+            const clickedElement = event.currentTarget; // Use currentTarget for delegated events if any
             if (clickedElement.classList.contains('empty') || clickedElement.classList.contains('disappearing')) return;
 
             const r = parseInt(clickedElement.dataset.r);
             const c = parseInt(clickedElement.dataset.c);
 
+            // If clicking the same selected tile, deselect it
             if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
                 clickedElement.classList.remove('selected');
                 selectedTile = null;
@@ -536,18 +627,19 @@
             }
             clickedElement.classList.add('selected');
 
-            if (!selectedTile) { 
+            if (!selectedTile) { // First tile selected
                 selectedTile = { r, c, element: clickedElement, type: board[r][c] };
-            } else { 
+            } else { // Second tile selected, attempt to match
                 const currentClickedTile = { r, c, element: clickedElement, type: board[r][c] };
-                isProcessingMatch = true; 
+                isProcessingMatch = true; // Lock input
 
+                // Store references before selectedTile is cleared
                 const firstTileType = selectedTile.type; 
                 const firstTileElementForEffects = selectedTile.element; 
 
-                if (firstTileType === currentClickedTile.type) { 
-                    const path = findPathOnBoard(selectedTile, currentClickedTile, board); 
-                    if (path) {
+                if (firstTileType === currentClickedTile.type) { // Types match, check path
+                    const path = findPathOnBoard(selectedTile, currentClickedTile, board); // Use current board state
+                    if (path) { // Valid match!
                         playMatchSound();
                         drawPath(path);
 
@@ -556,23 +648,25 @@
                         const r1 = selectedTile.r, c1 = selectedTile.c;
                         const r2 = currentClickedTile.r, c2 = currentClickedTile.c;
 
+                        // Add disappearing animation class
                         firstTileToRemove.classList.add('disappearing');
                         secondTileToRemove.classList.add('disappearing');
-                        firstTileToRemove.classList.remove('selected'); 
+                        firstTileToRemove.classList.remove('selected'); // Remove selection style
                         secondTileToRemove.classList.remove('selected');
 
                         let animationsCompleted = 0;
                         const onAnimationEnd = () => {
                             animationsCompleted++;
-                            if (animationsCompleted === 2) { 
-                                board[r1][c1] = EMPTY_TILE;
+                            if (animationsCompleted === 2) { // Both animations finished
+                                board[r1][c1] = EMPTY_TILE; // Update game state
                                 board[r2][c2] = EMPTY_TILE;
 
                                 [firstTileToRemove, secondTileToRemove].forEach(el => {
-                                    el.innerHTML = ''; 
-                                    el.classList.add('empty');
-                                    el.classList.remove('disappearing'); 
-                                    el.removeEventListener('click', handleTileClick);
+                                    el.innerHTML = ''; // Clear content
+                                    el.classList.add('empty'); // Mark as empty visually
+                                    el.classList.remove('disappearing'); // Clean up animation class
+                                    el.removeEventListener('click', handleTileClick); // Make unclickable
+                                    el.removeEventListener('touchstart', handleTileClick);
                                 });
 
                                 score += 10;
@@ -580,44 +674,46 @@
                                 updateScoreDisplay();
                                 updateTilesRemainingDisplay();
 
-                                setTimeout(() => clearPathCanvas(), 50); 
+                                setTimeout(() => clearPathCanvas(), 50); // Clear path after a brief moment
 
-                                if (tilesRemaining === 0) {
+                                if (tilesRemaining === 0) { // Game Won!
                                     stopTimer();
-                                    stopMp3BGM(); 
+                                    if(bgmEnabled) stopMp3BGM(); // Stop BGM on win if it was on
                                     playWinSound();
                                     showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
                                 }
-                                isProcessingMatch = false; 
+                                isProcessingMatch = false; // Unlock input
                             }
                         };
                         firstTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
                         secondTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
 
-                    } else {
+                    } else { // Types match, but no path - "shake" effect
                         if (firstTileElementForEffects) { 
                            firstTileElementForEffects.classList.add('shaking');
                         } else {
+                            // This case should ideally not happen if selectedTile is always set
                             console.error("selectedTile.element was null before shaking (same type). selectedTile:", selectedTile);
                         }
                         currentClickedTile.element.classList.add('shaking');
-                        if ('vibrate' in navigator) navigator.vibrate(150); 
+                        if ('vibrate' in navigator) navigator.vibrate(150); // Haptic feedback
 
+                        // Store elements for timeout to avoid issues if selectedTile changes
                         const firstElTimeout = firstTileElementForEffects; 
                         const secondElTimeout = currentClickedTile.element; 
 
                         setTimeout(() => {
                             if (firstElTimeout) firstElTimeout.classList.remove('selected', 'shaking');
                             if (secondElTimeout) secondElTimeout.classList.remove('selected', 'shaking');
-                            isProcessingMatch = false;
-                        }, 500); 
+                            isProcessingMatch = false; // Unlock input
+                        }, 500); // Duration of shake animation
                     }
-                } else {
+                } else { // Types don't match - "shake" effect
                      if (firstTileElementForEffects) { 
                         firstTileElementForEffects.classList.add('shaking');
-                    } else {
+                     } else {
                         console.error("selectedTile.element was null before shaking (different types). selectedTile:", selectedTile);
-                    }
+                     }
                     currentClickedTile.element.classList.add('shaking');
                     if ('vibrate' in navigator) navigator.vibrate(150);
                     
@@ -627,25 +723,33 @@
                     setTimeout(() => {
                         if (firstElTimeout_diff) firstElTimeout_diff.classList.remove('selected', 'shaking');
                         if (secondElTimeout_diff) secondElTimeout_diff.classList.remove('selected', 'shaking');
-                        isProcessingMatch = false;
+                        isProcessingMatch = false; // Unlock input
                     }, 500);
                 }
-                selectedTile = null; 
+                selectedTile = null; // Reset selection after attempting a match
             }
         }
 
         function drawPath(pathPoints) {
             if (!pathPoints || pathPoints.length < 2) return;
-            clearPathCanvas(); 
+            clearPathCanvas(); // Clear previous path
+            // Ensure first tile element exists to get dimensions
             const firstTileElement = gameBoardElement.querySelector(`.tile[data-r="${pathPoints[0].r}"][data-c="${pathPoints[0].c}"]`);
-            if (!firstTileElement) { console.error("Cannot find first tile for path drawing"); return; }
+            if (!firstTileElement) { console.error("Cannot find first tile for path drawing, path drawing skipped."); return; }
+
             const tileWidth = firstTileElement.offsetWidth;
             const tileHeight = firstTileElement.offsetHeight;
             const gameBoardStyle = getComputedStyle(gameBoardElement);
-            const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2); 
+            const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2); // Use actual gap
+
             canvasCtx.beginPath();
             for (let i = 0; i < pathPoints.length; i++) {
                 const point = pathPoints[i];
+                // Calculate center of the tile on the game board (1-indexed to 0-indexed for calculation)
+                // The path points (p1, p2, etc.) are relative to the BOARD (with padding),
+                // but tiles are rendered from 1 to GAME_ROWS/COLS.
+                // The canvas is positioned over the game board's tile area.
+                // So, if point.r/c is 1 (outermost actual tile), its 0-indexed position for drawing is 0.
                 const x = (point.c - 1) * (tileWidth + gap) + tileWidth / 2;
                 const y = (point.r - 1) * (tileHeight + gap) + tileHeight / 2;
                 if (i === 0) canvasCtx.moveTo(x, y);
@@ -655,7 +759,7 @@
         }
 
         function clearPathCanvas() {
-            if (lineCanvas.width > 0 && lineCanvas.height > 0) { 
+            if (lineCanvas.width > 0 && lineCanvas.height > 0) { // Only clear if canvas has dimensions
                 canvasCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
             }
         }
@@ -665,7 +769,7 @@
         function updateTilesRemainingDisplay() { tilesRemainingElement.textContent = tilesRemaining; }
 
         function startTimer() {
-            stopTimer(); 
+            stopTimer(); // Clear any existing timer
             timerInterval = setInterval(() => {
                 time++;
                 updateTimeDisplay();
@@ -683,23 +787,52 @@
 
         newGameBtn.addEventListener('click', initGame);
 
+        // --- Handle PWA Visibility Change (NEW CODE) ---
+        function handleVisibilityChange() {
+            if (!bgmAudioElement) return; // BGM element not found
+
+            if (document.hidden) {
+                // Page is hidden (minimized, screen off, tab switched)
+                if (bgmEnabled && !bgmAudioElement.paused) { // If BGM is supposed to be playing
+                    console.log("Visibility changed to hidden. Pausing BGM.");
+                    stopMp3BGM();
+                } else {
+                    console.log("Visibility changed to hidden. BGM was already paused or disabled by user.");
+                }
+            } else {
+                // Page is visible again
+                if (bgmEnabled && bgmAudioElement.paused) { // If BGM is supposed to be playing and was paused (e.g., by becoming hidden)
+                    console.log("Visibility changed to visible. Attempting to resume BGM.");
+                    playMp3BGM(); // This will try to play, respecting autoplay policies
+                } else {
+                     console.log("Visibility changed to visible. BGM is already playing or disabled by user.");
+                }
+            }
+        }
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        // --- End of NEW CODE for Visibility Change ---
+
         window.addEventListener('resize', () => {
+            // Only resize canvas if game board has children (i.e., game is active)
             if (gameBoardElement.children.length > 0) { 
-                 setTimeout(() => { 
+                setTimeout(() => { // Delay to allow layout to settle after resize
                     const boardRect = gameBoardElement.getBoundingClientRect();
                      if (boardRect.width > 0 && boardRect.height > 0) {
                         const computedStyle = getComputedStyle(gameBoardElement);
                         lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
                         lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
-                        clearPathCanvas(); 
+                        clearPathCanvas(); // Clear any existing path, it will be redrawn if needed
+                        // If a path was being displayed, it would need to be redrawn here.
+                        // For simplicity, current implementation clears it. A more complex game might store and redraw.
                     }
                 }, 100);
             }
         });
 
+        // Service Worker Registration (for PWA functionality)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js') 
+                navigator.serviceWorker.register('./sw.js') // Ensure sw.js is in the correct path
                     .then(registration => {
                         console.log('ServiceWorker registered successfully with scope: ', registration.scope);
                     })
@@ -709,8 +842,9 @@
             });
         }
 
-        updateBGMButton(); 
-        initGame(); 
+        // Initial Setup
+        updateBGMButton(); // Set initial button text
+        initGame(); // Start the first game
     </script>
 </body>
 </html>
