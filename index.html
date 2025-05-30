@@ -172,6 +172,13 @@
         </div>
     </div>
     
+    <!-- 
+        BGM Audio Element. 
+        NOTE: If you are running this HTML file directly from your local file system (e.g., file:///...), 
+        browsers might block loading local audio files due to security restrictions (URL safety check).
+        For reliable BGM playback during local development, serve this HTML and bgm.mp3 
+        from a simple local web server (e.g., using Python's http.server or a VS Code Live Server extension).
+    -->
     <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
 
     <script>
@@ -181,7 +188,7 @@
         const BOARD_ROWS = GAME_ROWS + 2; 
         const BOARD_COLS = GAME_COLS + 2; 
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "�", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "�", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -292,44 +299,31 @@
 
             if (!bgmEnabled) {
                 console.log("BGM play call skipped: BGM is disabled (bgmEnabled=false).");
-                // Ensure it's actually stopped if it was somehow playing and then disabled
                 if (!bgmAudioElement.paused) {
                     stopMp3BGM(); 
                 }
                 return;
             }
 
-            // At this point, bgmEnabled is true.
             if (restart) {
                 bgmAudioElement.currentTime = 0;
                 console.log("BGM restart requested: currentTime set to 0. Attempting to play.");
-                // Now attempt to play
+            }
+            
+            // Attempt to play if BGM is enabled and ( (restart was requested) OR (it's currently paused) )
+            if (bgmEnabled && (restart || bgmAudioElement.paused)) {
                 const playPromise = bgmAudioElement.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log("MP3 BGM (re)started successfully.");
+                        console.log(`MP3 BGM ${restart ? '(re)started' : 'resumed'} successfully.`);
                     }).catch(error => {
-                        console.warn("MP3 BGM (re)start failed. Error:", error);
+                        console.warn(`MP3 BGM ${restart ? '(re)start' : 'resume'} failed. Error:`, error);
                     });
                 } else {
-                     console.warn("bgmAudioElement.play() did not return a promise on restart.");
+                     console.warn("bgmAudioElement.play() did not return a promise.");
                 }
-            } else { // Not a restart, so play only if paused
-                if (bgmAudioElement.paused) {
-                    console.log("Attempting to play MP3 BGM (was paused)...");
-                    const playPromise = bgmAudioElement.play();
-                    if (playPromise !== undefined) {
-                        playPromise.then(() => {
-                            console.log("MP3 BGM playback resumed successfully.");
-                        }).catch(error => {
-                            console.warn("MP3 BGM resume failed. Error:", error);
-                        });
-                    } else {
-                        console.warn("bgmAudioElement.play() did not return a promise on resume.");
-                    }
-                } else {
-                    console.log("BGM play call skipped: BGM is already playing and restart not requested.");
-                }
+            } else if (bgmEnabled && !bgmAudioElement.paused && !restart) {
+                 console.log("BGM play call skipped: BGM is already playing and restart not requested.");
             }
         }
 
@@ -370,7 +364,92 @@
         } else {
             console.error("Could not add event listener: toggleBGMBtn element not found.");
         }
+        
+        // --- Pathfinding Logic ---
+        function isCellEmptyOnBoard(r, c, targetBoard) {
+            if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false;
+            if (!targetBoard[r]) return false; 
+            return targetBoard[r][c] === EMPTY_TILE;
+        }
+        function isLineClearOnBoard(p1, p2, isHorizontal, targetBoard) {
+            if (isHorizontal) {
+                const r = p1.r; const minC = Math.min(p1.c, p2.c); const maxC = Math.max(p1.c, p2.c);
+                for (let c = minC + 1; c < maxC; c++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
+            } else {
+                const c = p1.c; const minR = Math.min(p1.r, p2.r); const maxR = Math.max(p1.r, p2.r);
+                for (let r = minR + 1; r < maxR; r++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
+            }
+            return true;
+        }
+        function findPathOnBoard(p1, p2, targetBoard) {
+            if (p1.r === p2.r && p1.c === p2.c) return null; if (p1.type !== p2.type) return null;
+            if (p1.r === p2.r && isLineClearOnBoard(p1, p2, true, targetBoard)) return [p1, p2];
+            if (p1.c === p2.c && isLineClearOnBoard(p1, p2, false, targetBoard)) return [p1, p2];
+            const c1 = { r: p1.r, c: p2.c }; if (isCellEmptyOnBoard(c1.r, c1.c, targetBoard) && isLineClearOnBoard(p1, c1, true, targetBoard) && isLineClearOnBoard(c1, p2, false, targetBoard)) return [p1, c1, p2];
+            const c2 = { r: p2.r, c: p1.c }; if (isCellEmptyOnBoard(c2.r, c2.c, targetBoard) && isLineClearOnBoard(p1, c2, false, targetBoard) && isLineClearOnBoard(c2, p2, true, targetBoard)) return [p1, c2, p2];
+            for (let ci = 0; ci < BOARD_COLS; ci++) {
+                const pi = { r: p1.r, c: ci }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, true, targetBoard)) continue;
+                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.c === p1.c) && (pic1.r === p1.r && pic1.c === p2.c))) return [p1, pi, pic1, p2];
+                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p2.r && pic2.c === p1.c))) return [p1, pi, pic2, p2];
+            }
+            for (let ri = 0; ri < BOARD_ROWS; ri++) {
+                const pi = { r: ri, c: p1.c }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, false, targetBoard)) continue;
+                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.r === p2.r) && (pic1.c === p1.c && pic1.c === p2.c))) return [p1, pi, pic1, p2];
+                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p1.r && pic2.r === p2.r))) return [p1, pi, pic2, p2];
+            }
+            return null;
+        }
 
+        // --- Solvability Check (Function definition was missing) ---
+        function isSolvable(boardToCheck) {
+            // Create a deep copy of the board to simulate moves without affecting the actual game board
+            let tempBoard = JSON.parse(JSON.stringify(boardToCheck));
+            let currentTiles = [];
+
+            // Get all non-empty tiles from the game area (excluding border)
+            for (let r_idx = 1; r_idx <= GAME_ROWS; r_idx++) {
+                for (let c_idx = 1; c_idx <= GAME_COLS; c_idx++) {
+                    if (tempBoard[r_idx][c_idx] !== EMPTY_TILE) {
+                        currentTiles.push({ r: r_idx, c: c_idx, type: tempBoard[r_idx][c_idx] });
+                    }
+                }
+            }
+
+            if (currentTiles.length === 0) return true; // Board is already empty, thus solvable
+
+            // Try to find and remove pairs until no more moves can be made or all tiles are cleared
+            while (true) {
+                let madeAMove = false;
+                if (currentTiles.length === 0) return true; // All tiles cleared
+
+                // Iterate through all possible pairs of remaining tiles
+                for (let i = 0; i < currentTiles.length; i++) {
+                    for (let j = i + 1; j < currentTiles.length; j++) {
+                        const p1 = currentTiles[i];
+                        const p2 = currentTiles[j];
+
+                        if (p1.type === p2.type) { // Check if tiles are of the same type
+                            const path = findPathOnBoard(p1, p2, tempBoard); // Use the tempBoard for pathfinding
+                            if (path) {
+                                // If a path is found, remove these tiles from the tempBoard
+                                tempBoard[p1.r][p1.c] = EMPTY_TILE;
+                                tempBoard[p2.r][p2.c] = EMPTY_TILE;
+                                madeAMove = true;
+                                // Remove tiles from currentTiles list (splice from the end first to avoid index issues)
+                                currentTiles.splice(j, 1); 
+                                currentTiles.splice(i, 1);
+                                break; // Break inner loop to re-evaluate from the start of currentTiles
+                            }
+                        }
+                    }
+                    if (madeAMove) break; // Break outer loop if a move was made
+                }
+                if (!madeAMove) return false; // No more moves possible, but tiles remain
+            }
+        }
+
+
+        // --- Game Logic ---
         function initGame() {
             console.log("Initializing game...");
             stopTimer();
@@ -380,7 +459,7 @@
                 if (bgmEnabled) {
                     console.log("initGame: BGM is enabled. Requesting restart.");
                     playMp3BGM(true); 
-                } else if (!bgmAudioElement.paused) { // If BGM disabled but somehow playing
+                } else if (!bgmAudioElement.paused) { 
                     console.log("initGame: BGM is disabled but was playing. Stopping it.");
                     stopMp3BGM();
                 }
@@ -400,7 +479,8 @@
                 for (let i = tilesToPlace.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[tilesToPlace[i], tilesToPlace[j]] = [tilesToPlace[j], tilesToPlace[i]]; }
                 generatedBoardCandidate = Array(BOARD_ROWS).fill(null).map(() => Array(BOARD_COLS).fill(EMPTY_TILE));
                 let tileIndex = 0; for (let r = 1; r <= GAME_ROWS; r++) for (let c = 1; c <= GAME_COLS; c++) generatedBoardCandidate[r][c] = tilesToPlace[tileIndex++];
-                solvable = isSolvable(generatedBoardCandidate); retries++;
+                solvable = isSolvable(generatedBoardCandidate); // This was the line causing the error
+                retries++;
                 if(solvable) console.log(`Solvable board found after ${retries} retries.`); else if (retries % 20 === 0) console.log(`Retry ${retries}... still searching.`);
             } while (!solvable && retries < MAX_RETRIES);
             if (!solvable) { console.warn(`Could not generate solvable board after ${MAX_RETRIES} retries.`); showMessage("警告：棋盘可能无解。请尝试新游戏。"); }
