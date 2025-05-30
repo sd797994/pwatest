@@ -172,16 +172,16 @@
         </div>
     </div>
     
-    <audio id="bgm-audio" src="bgm.mid" loop></audio>
+    <audio id="bgm-audio" src="bgm.mp3" loop></audio> {/* Changed src to bgm.mp3 */}
 
     <script>
         // --- Game Configuration ---
         const GAME_ROWS = 8;
         const GAME_COLS = 10;
-        const BOARD_ROWS = GAME_ROWS + 2; // Including border for pathfinding
-        const BOARD_COLS = GAME_COLS + 2; // Including border for pathfinding
+        const BOARD_ROWS = GAME_ROWS + 2; 
+        const BOARD_COLS = GAME_COLS + 2; 
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "�", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -190,37 +190,27 @@
         let time = 0;
         let timerInterval = null;
         let tilesRemaining = 0;
-        let bgmEnabled = true; // BGM default on
-							  
+        let bgmEnabled = true; 
         let isProcessingMatch = false; 
 
         // --- Web Audio API Setup (for sound effects) ---
-													
         let audioCtx = null; 
 
-        function initAudioAndBGM() { // Renamed for clarity
-            // Initialize Web Audio API for sound effects
+        function initAudioAndBGM() { 
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     console.log("AudioContext for sound effects initialized by user interaction.");
-																		  
-									 
-									  
-					 
                 } catch (e) {
                     console.error("Web Audio API (for sound effects) is not supported in this browser.", e);
-												   
                 }
             }
 
-            // Attempt to play BGM after user interaction, if enabled and audio element is ready and paused
             if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused) {
                 console.log("Attempting to play BGM from initAudioAndBGM after user interaction.");
-                playMidiBGM();
+                playMp3BGM(); // Changed function name for clarity, though logic is similar
             }
         }
-        // Listen for the first user interaction to initialize audio capabilities
         document.body.addEventListener('click', initAudioAndBGM, { once: true });
         document.body.addEventListener('touchstart', initAudioAndBGM, { once: true });
 
@@ -238,13 +228,11 @@
         const messageText = document.getElementById('message-text');
         const messageOkBtn = document.getElementById('message-ok-btn');
         const bgmAudioElement = document.getElementById('bgm-audio'); 
-        // Log if DOM elements are found (useful for debugging)
         console.log("DOM Elements: BGM Audio Element:", bgmAudioElement, "Toggle BGM Button:", toggleBGMBtn);
 
         // --- Sound Effect Functions (Direct Web Audio API) ---
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
             if (!audioCtx || !audioCtx.destination) {
-                // console.warn("Sound effect skipped: AudioContext not ready or not supported for sound effects.");
                 return; 
             }
             const oscillator = audioCtx.createOscillator();
@@ -276,29 +264,23 @@
             });
         }
 
-        // --- MIDI Background Music Control ---
-        function playMidiBGM() {
+        // --- MP3 Background Music Control ---
+        function playMp3BGM() { // Renamed for clarity
             if (!bgmAudioElement) {
                 console.error("Cannot play BGM: audio element not found (bgmAudioElement is null).");
                 return;
-																										  
-				   
-														   
             }
             if (bgmEnabled && bgmAudioElement.paused) {
-                console.log("Attempting to play MIDI BGM (bgmAudioElement.play())...");
-                // The play() method returns a Promise.
+                console.log("Attempting to play MP3 BGM (bgmAudioElement.play())...");
                 const playPromise = bgmAudioElement.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log("MIDI BGM playback started successfully via promise.");
+                        console.log("MP3 BGM playback started successfully via promise.");
                     }).catch(error => {
-                        console.warn("MIDI BGM play failed via promise. Error:", error);
-                        // This often happens due to autoplay policies if not initiated by direct user action.
-                        // Or if the browser cannot play the MIDI file.
+                        console.warn("MP3 BGM play failed via promise. Error:", error);
                     });
                 } else {
-                     console.warn("bgmAudioElement.play() did not return a promise. Playback might not be supported or an issue occurred.");
+                     console.warn("bgmAudioElement.play() did not return a promise for MP3. Playback might not be supported or an issue occurred.");
                 }
             } else if (!bgmEnabled) {
                 console.log("BGM play call skipped: BGM is currently disabled (bgmEnabled=false).");
@@ -307,10 +289,10 @@
             }
         }
 
-        function stopMidiBGM() {
+        function stopMp3BGM() { // Renamed for clarity
             if (bgmAudioElement) {
                 bgmAudioElement.pause();
-                console.log("MIDI BGM stopped (pause() called on bgmAudioElement).");
+                console.log("MP3 BGM stopped (pause() called on bgmAudioElement).");
             } else {
                  console.error("Cannot stop BGM: audio element not found (bgmAudioElement is null).");
             }
@@ -319,32 +301,25 @@
         function updateBGMButton() {
             if (toggleBGMBtn) {
                 toggleBGMBtn.textContent = `BGM: ${bgmEnabled ? '开' : '关'}`;
-		 
-
-													  
-																											   
-									 
-							 
-							  
             } else {
                 console.error("Cannot update BGM button text: toggleBGMBtn element not found.");
             }
         }
         
-        if (toggleBGMBtn) { // Ensure button exists before adding listener
+        if (toggleBGMBtn) { 
             toggleBGMBtn.addEventListener('click', () => {
                 console.log("BGM button clicked. Current bgmEnabled state BEFORE toggle:", bgmEnabled);
-                bgmEnabled = !bgmEnabled; // Toggle the state
+                bgmEnabled = !bgmEnabled; 
                 console.log("bgmEnabled toggled. New state:", bgmEnabled);
 
                 if (bgmEnabled) {
-                    console.log("Calling playMidiBGM() due to button click (BGM enabled).");
-                    playMidiBGM();
+                    console.log("Calling playMp3BGM() due to button click (BGM enabled).");
+                    playMp3BGM();
                 } else {
-                    console.log("Calling stopMidiBGM() due to button click (BGM disabled).");
-                    stopMidiBGM();
+                    console.log("Calling stopMp3BGM() due to button click (BGM disabled).");
+                    stopMp3BGM();
                 }
-                updateBGMButton(); // Update the button text to reflect the new state
+                updateBGMButton(); 
                 console.log("BGM button text updated after click.");
             });
         } else {
@@ -412,7 +387,7 @@
             if (bgmAudioElement) {
                 if (!bgmEnabled && !bgmAudioElement.paused) {
                     console.log("initGame: BGM is disabled but was playing. Stopping it.");
-                    stopMidiBGM();
+                    stopMp3BGM();
                 }
             }
             updateBGMButton(); 
@@ -471,11 +446,7 @@
 
         function handleTileClick(event) {
             if (isProcessingMatch) return; 
-
-																				   
-													
             playClickSound();
-
 
             const clickedElement = event.currentTarget;
             if (clickedElement.classList.contains('empty') || clickedElement.classList.contains('disappearing')) return;
@@ -484,13 +455,10 @@
             const c = parseInt(clickedElement.dataset.c);
 
             if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
-															
                 clickedElement.classList.remove('selected');
                 selectedTile = null;
                 return;
             }
-
-														
             clickedElement.classList.add('selected');
 
             if (!selectedTile) { 
@@ -505,7 +473,6 @@
                 if (firstTileType === currentClickedTile.type) { 
                     const path = findPathOnBoard(selectedTile, currentClickedTile, board); 
                     if (path) {
-												
                         playMatchSound();
                         drawPath(path);
 
@@ -542,7 +509,7 @@
 
                                 if (tilesRemaining === 0) {
                                     stopTimer();
-                                    stopMidiBGM(); 
+                                    stopMp3BGM(); 
                                     playWinSound();
                                     showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
                                 }
@@ -672,9 +639,9 @@
             });
         }
 
-        // Initial setup calls
-        updateBGMButton(); // Set initial button text based on bgmEnabled state
-        initGame(); // Start the game
+        updateBGMButton(); 
+        initGame(); 
     </script>
 </body>
 </html>
+�
