@@ -172,7 +172,7 @@
         </div>
     </div>
     
-    <audio id="bgm-audio" src="bgm.mp3" loop></audio> {/* Changed src to bgm.mp3 */}
+    <audio id="bgm-audio" src="bgm.mp3" loop preload="auto"></audio>
 
     <script>
         // --- Game Configuration ---
@@ -181,7 +181,7 @@
         const BOARD_ROWS = GAME_ROWS + 2; 
         const BOARD_COLS = GAME_COLS + 2; 
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "�", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -208,7 +208,7 @@
 
             if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused) {
                 console.log("Attempting to play BGM from initAudioAndBGM after user interaction.");
-                playMp3BGM(); // Changed function name for clarity, though logic is similar
+                playMp3BGM();
             }
         }
         document.body.addEventListener('click', initAudioAndBGM, { once: true });
@@ -228,13 +228,74 @@
         const messageText = document.getElementById('message-text');
         const messageOkBtn = document.getElementById('message-ok-btn');
         const bgmAudioElement = document.getElementById('bgm-audio'); 
+        
+        // Set initial BGM volume
+        if (bgmAudioElement) {
+            bgmAudioElement.volume = 0.2; // Adjust this value (0.0 to 1.0) to set desired BGM volume
+            console.log(`Initial BGM volume set to: ${bgmAudioElement.volume}`);
+        }
         console.log("DOM Elements: BGM Audio Element:", bgmAudioElement, "Toggle BGM Button:", toggleBGMBtn);
+
+
+        // --- BGM Audio Element Event Listeners for Debugging ---
+        if (bgmAudioElement) {
+            bgmAudioElement.addEventListener('loadedmetadata', () => {
+                console.log(`BGM Event: loadedmetadata - Duration: ${bgmAudioElement.duration} seconds`);
+            });
+            bgmAudioElement.addEventListener('canplay', () => {
+                console.log("BGM Event: canplay - Browser can start playing.");
+            });
+            bgmAudioElement.addEventListener('canplaythrough', () => {
+                console.log("BGM Event: canplaythrough - Browser estimates it can play to the end without buffering.");
+            });
+            bgmAudioElement.addEventListener('play', () => {
+                console.log("BGM Event: play - Playback has started or resumed.");
+            });
+            bgmAudioElement.addEventListener('playing', () => {
+                console.log("BGM Event: playing - Playback is now in progress after a pause or delay.");
+            });
+            bgmAudioElement.addEventListener('pause', () => {
+                console.log("BGM Event: pause - Playback has been paused.");
+            });
+            bgmAudioElement.addEventListener('ended', () => {
+                console.log("BGM Event: ended - Playback stopped because the end of the media was reached.");
+            });
+            bgmAudioElement.addEventListener('error', (e) => {
+                console.error("BGM Event: error - An error occurred during loading or playback.");
+                if (bgmAudioElement.error) {
+                    console.error(`Error code: ${bgmAudioElement.error.code}, Message: ${bgmAudioElement.error.message}`);
+                } else {
+                    console.error("BGM error object not available.", e);
+                }
+            });
+            bgmAudioElement.addEventListener('stalled', () => {
+                console.warn("BGM Event: stalled - Browser is trying to get media data, but data is unexpectedly not forthcoming.");
+            });
+            bgmAudioElement.addEventListener('suspend', () => {
+                console.log("BGM Event: suspend - Browser intentionally not fetching media data (e.g., download completed or paused).");
+            });
+            bgmAudioElement.addEventListener('waiting', () => {
+                console.log("BGM Event: waiting - Playback stopped due to temporary lack of data (buffering).");
+            });
+            bgmAudioElement.addEventListener('progress', () => {
+                if (bgmAudioElement.buffered.length > 0) {
+                    const bufferedEnd = bgmAudioElement.buffered.end(bgmAudioElement.buffered.length - 1);
+                    const duration = bgmAudioElement.duration;
+                    if (duration > 0) {
+                        // console.log(`BGM Event: progress - Buffered: ${((bufferedEnd / duration) * 100).toFixed(2)}%`);
+                    }
+                }
+            });
+        }
+
 
         // --- Sound Effect Functions (Direct Web Audio API) ---
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
             if (!audioCtx || !audioCtx.destination) {
                 return; 
             }
+            // Higher volume for sound effects compared to BGM
+            const sfxVolume = 0.5; // Adjust this if needed
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
@@ -244,7 +305,7 @@
                 oscillator.frequency.exponentialRampToValueAtTime(freqEndValue, audioCtx.currentTime + freqEndTime);
             }
 
-            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(sfxVolume, audioCtx.currentTime); // Use sfxVolume
             gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
 
             oscillator.connect(gainNode);
@@ -254,18 +315,18 @@
             oscillator.stop(audioCtx.currentTime + duration);
         }
 
-        function playClickSound() { playSoundEffect('sine', 600, 0.1, 0.08); }
-        function playMatchSound() { playSoundEffect('triangle', 440, 0.2, 0.12, 0.1, 880); }
+        function playClickSound() { playSoundEffect('sine', 700, 0.08, 0.4); } // Slightly higher freq & volume
+        function playMatchSound() { playSoundEffect('triangle', 520, 0.15, 0.5, 0.08, 900); } // Adjusted for more distinct sound
         function playWinSound() {
             if (!audioCtx) return; 
             const freqs = [523.25, 659.25, 783.99, 1046.50]; 
             freqs.forEach((freq, i) => {
-                setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.1), i * 120);
+                setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.4), i * 120); // Slightly higher volume for win
             });
         }
 
         // --- MP3 Background Music Control ---
-        function playMp3BGM() { // Renamed for clarity
+        function playMp3BGM() { 
             if (!bgmAudioElement) {
                 console.error("Cannot play BGM: audio element not found (bgmAudioElement is null).");
                 return;
@@ -289,7 +350,7 @@
             }
         }
 
-        function stopMp3BGM() { // Renamed for clarity
+        function stopMp3BGM() { 
             if (bgmAudioElement) {
                 bgmAudioElement.pause();
                 console.log("MP3 BGM stopped (pause() called on bgmAudioElement).");
@@ -644,4 +705,3 @@
     </script>
 </body>
 </html>
-�
