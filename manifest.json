@@ -1,0 +1,53 @@
+{
+  "name": "萌萌连连看PWA版",
+  "short_name": "萌萌连连看",
+  "description": "一款可爱的HTML5连连看益智游戏，支持离线玩！",
+  "start_url": "./index.html", // 或者你的主HTML文件名，"./" 表示当前目录
+  "display": "standalone", // standalone: 像独立App一样；fullscreen: 全屏
+  "background_color": "#fff5e1", // 应用启动时的背景色 (스플래시 화면)
+  "theme_color": "#ff69b4", // 应用主题颜色 (例如浏览器工具栏颜色)
+  "orientation": "portrait", // 或者 "landscape", "any"
+  "icons": [
+    {
+      "src": "icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable" // maskable图标能更好地适应不同平台的图标形状
+    },
+    {
+      "src": "icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

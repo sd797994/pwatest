@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+	<link rel="manifest" href="manifest.json">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <meta name="apple-mobile-web-app-title" content="连连看PWA">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>萌萌连连看 (TinyMusic BGM)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://raw.githack.com/kevincennis/TinyMusic/master/dist/TinyMusic.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            overscroll-behavior-y: contain;
+        }
+        .game-wrapper {
+            width: 100%;
+            max-width: 600px;
+            margin: auto;
+            padding: 1rem;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+            padding: 5px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+        }
+        .tile {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(14px, 4.5vw, 24px);
+            background-color: #fff5e1;
+            border: 1px solid #ffdda0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.2s ease;
+            user-select: none;
+        }
+        .tile:hover {
+            transform: scale(1.05);
+        }
+        .tile.selected {
+            background-color: #ffd699;
+            border-color: #ffc266;
+            box-shadow: 0 0 8px rgba(255,165,0,0.5);
+        }
+        .tile.empty {
+            background-color: transparent;
+            border-color: transparent;
+            cursor: default;
+            pointer-events: none;
+        }
+        #line-canvas {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: calc(100% - 10px);
+            height: calc(100% - 10px);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .info-bar span {
+            min-width: 80px;
+            text-align: center;
+            font-size: clamp(0.8rem, 3vw, 1rem);
+        }
+        button {
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.5rem;
+            font-size: clamp(0.9rem, 3.5vw, 1rem);
+            cursor: pointer;
+        }
+        @media (min-width: 600px) {
+            .game-board {
+                gap: 4px;
+                padding: 10px;
+            }
+            #line-canvas {
+                top: 10px;
+                left: 10px;
+                width: calc(100% - 20px);
+                height: calc(100% - 20px);
+            }
+            .tile {
+                font-size: clamp(16px, 4vw, 28px);
+                border-radius: 6px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 min-h-screen flex flex-col items-center justify-center p-0 sm:p-4">
+
+    <div class="game-wrapper bg-white/90 p-4 sm:p-6 md:p-8 rounded-xl shadow-2xl w-full">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-center text-pink-600 mb-3 sm:mb-4">🌈 萌萌连连看 🌈</h1>
+
+        <div class="info-bar flex flex-wrap justify-around items-center mb-3 sm:mb-4 text-gray-700 gap-1 sm:gap-2">
+            <span class="bg-blue-100 p-1 sm:p-2 rounded-lg shadow">时间: <span id="time">0</span> 秒</span>
+            <span class="bg-green-100 p-1 sm:p-2 rounded-lg shadow">得分: <span id="score">0</span></span>
+            <span class="bg-yellow-100 p-1 sm:p-2 rounded-lg shadow">剩余: <span id="tiles-remaining">0</span></span>
+        </div>
+
+        <div id="game-container" class="relative w-full">
+            <div id="game-board" class="game-board mx-auto">
+                </div>
+            <canvas id="line-canvas"></canvas>
+        </div>
+
+        <div class="controls mt-4 sm:mt-6 flex justify-center gap-4">
+            <button id="new-game-btn" class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 sm:px-6 rounded-lg shadow-md transition duration-150">
+                新游戏
+            </button>
+            <button id="toggle-bgm-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 sm:px-6 rounded-lg shadow-md transition duration-150">
+                BGM: 开
+            </button>
+        </div>
+
+        <div id="message-box" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white p-6 sm:p-8 rounded-lg shadow-xl text-center max-w-xs mx-auto">
+                <p id="message-text" class="text-lg sm:text-xl mb-4"></p>
+                <button id="message-ok-btn" class="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-6 rounded-lg">好的</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Configuration ---
+        const GAME_ROWS = 8;
+        const GAME_COLS = 10;
+        const BOARD_ROWS = GAME_ROWS + 2;
+        const BOARD_COLS = GAME_COLS + 2;
+        const EMPTY_TILE = null;
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
+
+        // --- Game State ---
+        let board = [];
+        let selectedTile = null;
+        let score = 0;
+        let time = 0;
+        let timerInterval = null;
+        let tilesRemaining = 0;
+        let bgmEnabled = true; // BGM 默认开启
+        let bgmSequence = null; // To store the TinyMusic sequence
+
+        // --- Web Audio API Setup (for sound effects) & TinyMusic ---
+        let audioCtx = null; // This will be used by both direct Web Audio and TinyMusic
+
+        function initAudioContext() {
+            if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    console.log("AudioContext initialized for sound effects and TinyMusic.");
+                    // TinyMusic.js should now be able to use this audioCtx
+                    if (bgmEnabled) {
+                        playTinyMusicBGM(); // Start BGM if it was enabled
+                    }
+                } catch (e) {
+                    console.error("Web Audio API is not supported in this browser.", e);
+                    bgmEnabled = false;
+                    updateBGMButton();
+                }
+            } else if (!audioCtx) {
+                 bgmEnabled = false;
+                 updateBGMButton();
+                 console.warn("AudioContext could not be initialized. BGM and sound effects disabled.");
+            }
+        }
+        // Initialize on first user interaction
+        document.body.addEventListener('click', initAudioContext, { once: true });
+        document.body.addEventListener('touchstart', initAudioContext, { once: true });
+
+
+        // --- DOM Elements ---
+        const gameBoardElement = document.getElementById('game-board');
+        const timeElement = document.getElementById('time');
+        const scoreElement = document.getElementById('score');
+        const tilesRemainingElement = document.getElementById('tiles-remaining');
+        const newGameBtn = document.getElementById('new-game-btn');
+        const toggleBGMBtn = document.getElementById('toggle-bgm-btn');
+        const lineCanvas = document.getElementById('line-canvas');
+        const canvasCtx = lineCanvas.getContext('2d');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const messageOkBtn = document.getElementById('message-ok-btn');
+
+        // --- Sound Effect Functions (Direct Web Audio API) ---
+        function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
+            if (!audioCtx || !audioCtx.destination) return; // Check if audioCtx is available
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            if (freqEndTime && freqEndValue) {
+                oscillator.frequency.exponentialRampToValueAtTime(freqEndValue, audioCtx.currentTime + freqEndTime);
+            }
+
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function playClickSound() { playSoundEffect('sine', 600, 0.1, 0.08); }
+        function playMatchSound() { playSoundEffect('triangle', 440, 0.2, 0.12, 0.1, 880); }
+        function playWinSound() {
+            if (!audioCtx) return;
+            const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            freqs.forEach((freq, i) => {
+                setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.1), i * 120);
+            });
+        }
+
+        // --- TinyMusic Background Music ---
+        function playTinyMusicBGM() {
+            if (!audioCtx || !TinyMusic || !bgmEnabled || bgmSequence && bgmSequence.playing) return;
+
+            stopTinyMusicBGM(); // Stop any existing BGM first
+
+            // Define a very simple, slow, and low-volume sequence
+            const tempo = 100; // Beats per minute
+            const notes = [
+                // Bar 1
+                new TinyMusic.Note('C3 q'), // C3 quarter note
+                new TinyMusic.Note('G3 q'), // G3 quarter note
+                new TinyMusic.Note('E3 q'), // E3 quarter note
+                new TinyMusic.Note('G3 q'), // G3 quarter note
+                // Bar 2 - slight variation or rest
+                new TinyMusic.Note('D3 q'),
+                new TinyMusic.Note('A3 q'),
+                new TinyMusic.Note('F3 q'),
+                new TinyMusic.Note('A3 q'),
+            ];
+
+            bgmSequence = new TinyMusic.Sequence(audioCtx, tempo, notes);
+            bgmSequence.loop = true;
+            bgmSequence.staccato = 0.1; // Add a little staccato to make notes more distinct
+            bgmSequence.gain.gain.value = 0.03; // Very low volume (TinyMusic's gain is a GainNode)
+            bgmSequence.smoothing = 0.1;
+            bgmSequence.waveType = 'sine'; // Softer tone
+
+            bgmSequence.play(audioCtx.currentTime); // Start playing
+            console.log("TinyMusic BGM started");
+        }
+
+        function stopTinyMusicBGM() {
+            if (bgmSequence && typeof bgmSequence.stop === 'function') {
+                bgmSequence.stop();
+                bgmSequence = null; // Clear the sequence
+                console.log("TinyMusic BGM stopped");
+            }
+        }
+
+        function updateBGMButton() {
+            toggleBGMBtn.textContent = `BGM: ${bgmEnabled ? '开' : '关'}`;
+        }
+
+        toggleBGMBtn.addEventListener('click', () => {
+            initAudioContext(); // Ensure context is ready
+            if (!audioCtx) { // If context still not available after click, do nothing
+                bgmEnabled = false;
+                updateBGMButton();
+                return;
+            }
+            bgmEnabled = !bgmEnabled;
+            if (bgmEnabled) {
+                playTinyMusicBGM();
+            } else {
+                stopTinyMusicBGM();
+            }
+            updateBGMButton();
+        });
+
+        // --- Pathfinding Logic (unchanged) ---
+        function isCellEmptyOnBoard(r, c, targetBoard) {
+            if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false;
+            if (!targetBoard[r]) return false;
+            return targetBoard[r][c] === EMPTY_TILE;
+        }
+        function isLineClearOnBoard(p1, p2, isHorizontal, targetBoard) {
+            if (isHorizontal) {
+                const r = p1.r;
+                const minC = Math.min(p1.c, p2.c);
+                const maxC = Math.max(p1.c, p2.c);
+                for (let c = minC + 1; c < maxC; c++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
+            } else {
+                const c = p1.c;
+                const minR = Math.min(p1.r, p2.r);
+                const maxR = Math.max(p1.r, p2.r);
+                for (let r = minR + 1; r < maxR; r++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
+            }
+            return true;
+        }
+        function findPathOnBoard(p1, p2, targetBoard) {
+            if (p1.r === p2.r && p1.c === p2.c) return null; if (p1.type !== p2.type) return null;
+            if (p1.r === p2.r && isLineClearOnBoard(p1, p2, true, targetBoard)) return [p1, p2];
+            if (p1.c === p2.c && isLineClearOnBoard(p1, p2, false, targetBoard)) return [p1, p2];
+            const c1 = { r: p1.r, c: p2.c }; if (isCellEmptyOnBoard(c1.r, c1.c, targetBoard) && isLineClearOnBoard(p1, c1, true, targetBoard) && isLineClearOnBoard(c1, p2, false, targetBoard)) return [p1, c1, p2];
+            const c2 = { r: p2.r, c: p1.c }; if (isCellEmptyOnBoard(c2.r, c2.c, targetBoard) && isLineClearOnBoard(p1, c2, false, targetBoard) && isLineClearOnBoard(c2, p2, true, targetBoard)) return [p1, c2, p2];
+            for (let ci = 0; ci < BOARD_COLS; ci++) {
+                const pi = { r: p1.r, c: ci }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, true, targetBoard)) continue;
+                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.c === p1.c) && (pic1.r === p1.r && pic1.c === p2.c))) return [p1, pi, pic1, p2];
+                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p2.r && pic2.c === p1.c))) return [p1, pi, pic2, p2];
+            }
+            for (let ri = 0; ri < BOARD_ROWS; ri++) {
+                const pi = { r: ri, c: p1.c }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, false, targetBoard)) continue;
+                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.r === p2.r) && (pic1.c === p1.c && pic1.c === p2.c))) return [p1, pi, pic1, p2];
+                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p1.r && pic2.r === p2.r))) return [p1, pi, pic2, p2];
+            }
+            return null;
+        }
+
+        // --- Solvability Check (unchanged) ---
+        function isSolvable(boardToCheck) {
+            let tempBoard = JSON.parse(JSON.stringify(boardToCheck)); let currentTiles = [];
+            for (let r_idx = 1; r_idx <= GAME_ROWS; r_idx++) for (let c_idx = 1; c_idx <= GAME_COLS; c_idx++) if (tempBoard[r_idx][c_idx] !== EMPTY_TILE) currentTiles.push({ r: r_idx, c: c_idx, type: tempBoard[r_idx][c_idx] });
+            if (currentTiles.length === 0) return true;
+            while (true) {
+                let madeAMove = false; if (currentTiles.length === 0) return true;
+                for (let i = 0; i < currentTiles.length; i++) {
+                    for (let j = i + 1; j < currentTiles.length; j++) {
+                        const p1 = currentTiles[i], p2 = currentTiles[j];
+                        if (p1.type === p2.type) { const path = findPathOnBoard(p1, p2, tempBoard); if (path) { tempBoard[p1.r][p1.c] = EMPTY_TILE; tempBoard[p2.r][p2.c] = EMPTY_TILE; madeAMove = true; currentTiles.splice(j, 1); currentTiles.splice(i, 1); break; } }
+                    } if (madeAMove) break;
+                } if (!madeAMove) return false;
+            }
+        }
+
+        // --- Game Logic (minor BGM calls added) ---
+        function initGame() {
+            console.log("Initializing game..."); stopTimer();
+            if (audioCtx && bgmEnabled) { // Check audioCtx before playing
+                playTinyMusicBGM();
+            }
+            score = 0; time = 0; tilesRemaining = GAME_ROWS * GAME_COLS;
+            updateScoreDisplay(); updateTimeDisplay(); updateTilesRemainingDisplay();
+            selectedTile = null; clearPathCanvas();
+            let generatedBoardCandidate, solvable = false, retries = 0; const MAX_RETRIES = 100;
+            console.log("Attempting to generate a solvable board...");
+            do {
+                let tilesToPlace = []; const numPairs = (GAME_ROWS * GAME_COLS) / 2;
+                if (EMOJIS_POOL.length < numPairs) { console.error("Not enough emojis!"); showMessage("错误：表情符号不足！"); return; }
+                const gameEmojis = EMOJIS_POOL.slice(0, numPairs);
+                for (let i = 0; i < numPairs; i++) tilesToPlace.push(gameEmojis[i], gameEmojis[i]);
+                for (let i = tilesToPlace.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[tilesToPlace[i], tilesToPlace[j]] = [tilesToPlace[j], tilesToPlace[i]]; }
+                generatedBoardCandidate = Array(BOARD_ROWS).fill(null).map(() => Array(BOARD_COLS).fill(EMPTY_TILE));
+                let tileIndex = 0; for (let r = 1; r <= GAME_ROWS; r++) for (let c = 1; c <= GAME_COLS; c++) generatedBoardCandidate[r][c] = tilesToPlace[tileIndex++];
+                solvable = isSolvable(generatedBoardCandidate); retries++;
+                if(solvable) console.log(`Solvable board found after ${retries} retries.`); else if (retries % 20 === 0) console.log(`Retry ${retries}... still searching.`);
+            } while (!solvable && retries < MAX_RETRIES);
+            if (!solvable) { console.warn(`Could not generate solvable board after ${MAX_RETRIES} retries.`); showMessage("警告：棋盘可能无解。请尝试新游戏。"); }
+            board = generatedBoardCandidate; renderBoard(); startTimer(); console.log("Game initialized.");
+        }
+        function renderBoard() {
+            gameBoardElement.innerHTML = '';
+            setTimeout(() => {
+                const boardRect = gameBoardElement.getBoundingClientRect();
+                if (boardRect.width > 0 && boardRect.height > 0) {
+                    const computedStyle = getComputedStyle(gameBoardElement);
+                    lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
+                    lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
+                    canvasCtx.lineWidth = 3; canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)';
+                }
+            }, 50);
+            for (let r = 1; r <= GAME_ROWS; r++) {
+                for (let c = 1; c <= GAME_COLS; c++) {
+                    const tileElement = document.createElement('div'); tileElement.classList.add('tile');
+                    tileElement.dataset.r = r; tileElement.dataset.c = c;
+                    if (board[r][c] === EMPTY_TILE) tileElement.classList.add('empty');
+                    else {
+                        tileElement.textContent = board[r][c];
+                        tileElement.addEventListener('click', handleTileClick);
+                        tileElement.addEventListener('touchstart', (e) => { e.preventDefault(); handleTileClick(e); }, { passive: false });
+                    } gameBoardElement.appendChild(tileElement);
+                }
+            }
+        }
+        function handleTileClick(event) {
+            initAudioContext(); playClickSound();
+            const clickedElement = event.currentTarget; if (clickedElement.classList.contains('empty')) return;
+            const r = parseInt(clickedElement.dataset.r), c = parseInt(clickedElement.dataset.c);
+            if (selectedTile && selectedTile.r === r && selectedTile.c === c) { clickedElement.classList.remove('selected'); selectedTile = null; return; }
+            clickedElement.classList.add('selected');
+            if (!selectedTile) selectedTile = { r, c, element: clickedElement, type: board[r][c] };
+            else {
+                const currentClickedTile = { r, c, element: clickedElement, type: board[r][c] };
+                if (selectedTile.type === currentClickedTile.type) {
+                    const path = findPathOnBoard(selectedTile, currentClickedTile, board);
+                    if (path) {
+                        playMatchSound(); drawPath(path);
+                        board[selectedTile.r][selectedTile.c] = EMPTY_TILE; board[currentClickedTile.r][currentClickedTile.c] = EMPTY_TILE;
+                        [selectedTile.element, currentClickedTile.element].forEach(el => { el.classList.add('empty'); el.classList.remove('selected'); el.textContent = ''; el.removeEventListener('click', handleTileClick); el.removeEventListener('touchstart', handleTileClick); });
+                        score += 10; tilesRemaining -= 2; updateScoreDisplay(); updateTilesRemainingDisplay();
+                        setTimeout(() => clearPathCanvas(), 300);
+                        if (tilesRemaining === 0) {
+                            stopTimer(); stopTinyMusicBGM(); playWinSound();
+                            showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
+                        }
+                    } else { selectedTile.element.classList.remove('selected'); currentClickedTile.element.classList.remove('selected'); }
+                } else { selectedTile.element.classList.remove('selected'); currentClickedTile.element.classList.remove('selected'); }
+                selectedTile = null;
+            }
+        }
+        function drawPath(pathPoints) {
+            if (!pathPoints || pathPoints.length < 2) return; clearPathCanvas();
+            const firstTileElement = gameBoardElement.querySelector(`.tile[data-r="${pathPoints[0].r}"][data-c="${pathPoints[0].c}"]`); if (!firstTileElement) return;
+            const tileWidth = firstTileElement.offsetWidth, tileHeight = firstTileElement.offsetHeight;
+            const gameBoardStyle = getComputedStyle(gameBoardElement); const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2);
+            canvasCtx.beginPath();
+            for (let i = 0; i < pathPoints.length; i++) {
+                const point = pathPoints[i]; const x = (point.c - 1) * (tileWidth + gap) + tileWidth / 2; const y = (point.r - 1) * (tileHeight + gap) + tileHeight / 2;
+                if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+            } canvasCtx.stroke();
+        }
+        function clearPathCanvas() { if (lineCanvas.width > 0 && lineCanvas.height > 0) canvasCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height); }
+        function updateScoreDisplay() { scoreElement.textContent = score; }
+        function updateTimeDisplay() { timeElement.textContent = time; }
+        function updateTilesRemainingDisplay() { tilesRemainingElement.textContent = tilesRemaining; }
+        function startTimer() { stopTimer(); timerInterval = setInterval(() => { time++; updateTimeDisplay(); }, 1000); }
+        function stopTimer() { clearInterval(timerInterval); }
+        function showMessage(message) { messageText.textContent = message; messageBox.classList.remove('hidden'); }
+        messageOkBtn.addEventListener('click', () => { messageBox.classList.add('hidden'); });
+        newGameBtn.addEventListener('click', initGame);
+        window.addEventListener('resize', () => {
+            if (gameBoardElement.children.length > 0) {
+                 setTimeout(() => {
+                    const boardRect = gameBoardElement.getBoundingClientRect();
+                     if (boardRect.width > 0 && boardRect.height > 0) {
+                        const computedStyle = getComputedStyle(gameBoardElement);
+                        lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
+                        lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
+                        clearPathCanvas();
+                    }
+                }, 100);
+            }
+        });
+        updateBGMButton(); // Set initial button text
+        initGame(); // Start the game
+		if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js') // 确保路径正确
+            .then(registration => {
+              console.log('ServiceWorker registered successfully with scope: ', registration.scope);
+            })
+            .catch(error => {
+              console.log('ServiceWorker registration failed: ', error);
+            });
+        });
+      }
+    </script>
+</body>
+</html>
