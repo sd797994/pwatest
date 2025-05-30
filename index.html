@@ -2,9 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-	<link rel="manifest" href="manifest.json">
-	<meta name="apple-mobile-web-app-capable" content="yes">
-	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <meta name="apple-mobile-web-app-title" content="连连看PWA">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="连连看PWA">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>萌萌连连看 (TinyMusic BGM)</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,45 +13,45 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            touch-action: manipulation;
-            overscroll-behavior-y: contain;
+            touch-action: manipulation; /* Prevents double-tap zoom, etc. */
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on game area */
         }
         .game-wrapper {
             width: 100%;
-            max-width: 600px;
+            max-width: 600px; /* Max width for larger screens */
             margin: auto;
-            padding: 1rem;
+            padding: 1rem; /* Responsive padding */
         }
         .game-board {
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 2px;
-            padding: 5px;
+            grid-template-columns: repeat(10, 1fr); /* 10 columns */
+            gap: 2px; /* Small gap between tiles */
+            padding: 5px; /* Padding around the grid */
             background-color: #f0f0f0;
             border-radius: 8px;
-            position: relative;
+            position: relative; /* For canvas positioning */
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            width: 100%;
+            width: 100%; /* Ensure it takes full width of its container */
         }
         .tile {
-            width: 100%;
-            aspect-ratio: 1 / 1;
+            width: 100%; /* Make tile fill grid cell */
+            aspect-ratio: 1 / 1; /* Maintain square shape */
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: clamp(14px, 4.5vw, 24px);
-            background-color: #fff5e1;
-            border: 1px solid #ffdda0;
+            font-size: clamp(14px, 4.5vw, 24px); /* Responsive font size */
+            background-color: #fff5e1; /* Light creamy background */
+            border: 1px solid #ffdda0; /* Light orange border */
             border-radius: 4px;
             cursor: pointer;
             transition: transform 0.1s ease, background-color 0.2s ease;
-            user-select: none;
+            user-select: none; /* Prevent text selection */
         }
         .tile:hover {
             transform: scale(1.05);
         }
         .tile.selected {
-            background-color: #ffd699;
+            background-color: #ffd699; /* Highlight color for selected tile */
             border-color: #ffc266;
             box-shadow: 0 0 8px rgba(255,165,0,0.5);
         }
@@ -58,28 +59,68 @@
             background-color: transparent;
             border-color: transparent;
             cursor: default;
-            pointer-events: none;
+            pointer-events: none; /* Make empty tiles unclickable */
         }
         #line-canvas {
             position: absolute;
-            top: 5px;
-            left: 5px;
-            width: calc(100% - 10px);
-            height: calc(100% - 10px);
-            pointer-events: none;
-            z-index: 10;
+            top: 5px; /* Match game-board padding */
+            left: 5px; /* Match game-board padding */
+            width: calc(100% - 10px); /* Adjust for padding */
+            height: calc(100% - 10px); /* Adjust for padding */
+            pointer-events: none; /* Canvas doesn't block tile clicks */
+            z-index: 10; /* Draw lines above tiles but below messages */
         }
         .info-bar span {
-            min-width: 80px;
+            min-width: 80px; /* Ensure consistent width for info items */
             text-align: center;
-            font-size: clamp(0.8rem, 3vw, 1rem);
+            font-size: clamp(0.8rem, 3vw, 1rem); /* Responsive font size */
         }
         button {
             padding: 0.6rem 1.2rem;
             border-radius: 0.5rem;
-            font-size: clamp(0.9rem, 3.5vw, 1rem);
+            font-size: clamp(0.9rem, 3.5vw, 1rem); /* Responsive font size */
             cursor: pointer;
         }
+
+        /* Added Animation Styles */
+        .tile.shaking {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0); /* Hardware acceleration hint */
+        }
+
+        .tile.disappearing {
+            animation: disappear 0.4s ease-out forwards;
+        }
+
+        @keyframes shake {
+            10%, 90% {
+                transform: translate3d(-1px, 0, 0) scale(1.02);
+            }
+            20%, 80% {
+                transform: translate3d(2px, 0, 0) scale(1.02);
+            }
+            30%, 50%, 70% {
+                transform: translate3d(-3px, 0, 0) scale(1.02);
+            }
+            40%, 60% {
+                transform: translate3d(3px, 0, 0) scale(1.02);
+            }
+        }
+
+        @keyframes disappear {
+            0% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.3) rotate(45deg);
+                opacity: 0;
+            }
+        }
+        /* End of Added Animation Styles */
+
+
+        /* Responsive adjustments for larger screens */
         @media (min-width: 600px) {
             .game-board {
                 gap: 4px;
@@ -92,7 +133,7 @@
                 height: calc(100% - 20px);
             }
             .tile {
-                font-size: clamp(16px, 4vw, 28px);
+                font-size: clamp(16px, 4vw, 28px); /* Slightly larger font on bigger screens */
                 border-radius: 6px;
             }
         }
@@ -136,10 +177,10 @@
         // --- Game Configuration ---
         const GAME_ROWS = 8;
         const GAME_COLS = 10;
-        const BOARD_ROWS = GAME_ROWS + 2;
-        const BOARD_COLS = GAME_COLS + 2;
+        const BOARD_ROWS = GAME_ROWS + 2; // Including border for pathfinding
+        const BOARD_COLS = GAME_COLS + 2; // Including border for pathfinding
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "�", "🦢", "🦜", "🦩", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -148,20 +189,21 @@
         let time = 0;
         let timerInterval = null;
         let tilesRemaining = 0;
-        let bgmEnabled = true; // BGM 默认开启
-        let bgmSequence = null; // To store the TinyMusic sequence
+        let bgmEnabled = true; // BGM default on
+        let bgmSequence = null;
+        let isProcessingMatch = false; // Flag to prevent clicks during animation
 
         // --- Web Audio API Setup (for sound effects) & TinyMusic ---
-        let audioCtx = null; // This will be used by both direct Web Audio and TinyMusic
+        let audioCtx = null;
 
         function initAudioContext() {
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     console.log("AudioContext initialized for sound effects and TinyMusic.");
-                    // TinyMusic.js should now be able to use this audioCtx
+																		   
                     if (bgmEnabled) {
-                        playTinyMusicBGM(); // Start BGM if it was enabled
+                        playTinyMusicBGM();
                     }
                 } catch (e) {
                     console.error("Web Audio API is not supported in this browser.", e);
@@ -169,12 +211,12 @@
                     updateBGMButton();
                 }
             } else if (!audioCtx) {
-                 bgmEnabled = false;
-                 updateBGMButton();
-                 console.warn("AudioContext could not be initialized. BGM and sound effects disabled.");
+                bgmEnabled = false;
+                updateBGMButton();
+                console.warn("AudioContext could not be initialized. BGM and sound effects disabled.");
             }
         }
-        // Initialize on first user interaction
+        // Initialize on first user interaction (click or touch) to comply with autoplay policies
         document.body.addEventListener('click', initAudioContext, { once: true });
         document.body.addEventListener('touchstart', initAudioContext, { once: true });
 
@@ -194,7 +236,7 @@
 
         // --- Sound Effect Functions (Direct Web Audio API) ---
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
-            if (!audioCtx || !audioCtx.destination) return; // Check if audioCtx is available
+            if (!audioCtx || !audioCtx.destination) return;
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
@@ -226,40 +268,40 @@
 
         // --- TinyMusic Background Music ---
         function playTinyMusicBGM() {
-            if (!audioCtx || !TinyMusic || !bgmEnabled || bgmSequence && bgmSequence.playing) return;
+            if (!audioCtx || !TinyMusic || !bgmEnabled || (bgmSequence && bgmSequence.playing)) return;
 
-            stopTinyMusicBGM(); // Stop any existing BGM first
+            stopTinyMusicBGM();
 
-            // Define a very simple, slow, and low-volume sequence
-            const tempo = 100; // Beats per minute
+																  
+            const tempo = 100;
             const notes = [
-                // Bar 1
-                new TinyMusic.Note('C3 q'), // C3 quarter note
-                new TinyMusic.Note('G3 q'), // G3 quarter note
-                new TinyMusic.Note('E3 q'), // E3 quarter note
-                new TinyMusic.Note('G3 q'), // G3 quarter note
-                // Bar 2 - slight variation or rest
-                new TinyMusic.Note('D3 q'),
-                new TinyMusic.Note('A3 q'),
-                new TinyMusic.Note('F3 q'),
-                new TinyMusic.Note('A3 q'),
+                new TinyMusic.Note('C3 q'), new TinyMusic.Note('G3 q'), new TinyMusic.Note('E3 q'), new TinyMusic.Note('G3 q'),
+                new TinyMusic.Note('D3 q'), new TinyMusic.Note('A3 q'), new TinyMusic.Note('F3 q'), new TinyMusic.Note('A3 q'),
+															  
+															  
+															  
+												   
+										   
+										   
+										   
+										   
             ];
 
             bgmSequence = new TinyMusic.Sequence(audioCtx, tempo, notes);
             bgmSequence.loop = true;
-            bgmSequence.staccato = 0.1; // Add a little staccato to make notes more distinct
-            bgmSequence.gain.gain.value = 0.03; // Very low volume (TinyMusic's gain is a GainNode)
+            bgmSequence.staccato = 0.1;
+            bgmSequence.gain.gain.value = 0.03; // Very low volume
             bgmSequence.smoothing = 0.1;
-            bgmSequence.waveType = 'sine'; // Softer tone
+            bgmSequence.waveType = 'sine';
 
-            bgmSequence.play(audioCtx.currentTime); // Start playing
+            bgmSequence.play(audioCtx.currentTime);
             console.log("TinyMusic BGM started");
         }
 
         function stopTinyMusicBGM() {
             if (bgmSequence && typeof bgmSequence.stop === 'function') {
                 bgmSequence.stop();
-                bgmSequence = null; // Clear the sequence
+                bgmSequence = null;
                 console.log("TinyMusic BGM stopped");
             }
         }
@@ -270,36 +312,36 @@
 
         toggleBGMBtn.addEventListener('click', () => {
             initAudioContext(); // Ensure context is ready
-            if (!audioCtx) { // If context still not available after click, do nothing
-                bgmEnabled = false;
-                updateBGMButton();
-                return;
+            if (!audioCtx) {
+                bgmEnabled = false; updateBGMButton(); return;
+								  
+					   
             }
             bgmEnabled = !bgmEnabled;
-            if (bgmEnabled) {
-                playTinyMusicBGM();
-            } else {
-                stopTinyMusicBGM();
-            }
+							 
+            if (bgmEnabled) playTinyMusicBGM();
+					
+            else stopTinyMusicBGM();
+			 
             updateBGMButton();
         });
 
-        // --- Pathfinding Logic (unchanged) ---
+        // --- Pathfinding Logic (unchanged from original) ---
         function isCellEmptyOnBoard(r, c, targetBoard) {
             if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false;
-            if (!targetBoard[r]) return false;
+            if (!targetBoard[r]) return false; 
             return targetBoard[r][c] === EMPTY_TILE;
         }
         function isLineClearOnBoard(p1, p2, isHorizontal, targetBoard) {
             if (isHorizontal) {
-                const r = p1.r;
-                const minC = Math.min(p1.c, p2.c);
-                const maxC = Math.max(p1.c, p2.c);
+							   
+                const r = p1.r; const minC = Math.min(p1.c, p2.c); const maxC = Math.max(p1.c, p2.c);
+												  
                 for (let c = minC + 1; c < maxC; c++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
             } else {
-                const c = p1.c;
-                const minR = Math.min(p1.r, p2.r);
-                const maxR = Math.max(p1.r, p2.r);
+							   
+                const c = p1.c; const minR = Math.min(p1.r, p2.r); const maxR = Math.max(p1.r, p2.r);
+												  
                 for (let r = minR + 1; r < maxR; r++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
             }
             return true;
@@ -323,7 +365,7 @@
             return null;
         }
 
-        // --- Solvability Check (unchanged) ---
+        // --- Solvability Check (unchanged from original) ---
         function isSolvable(boardToCheck) {
             let tempBoard = JSON.parse(JSON.stringify(boardToCheck)); let currentTiles = [];
             for (let r_idx = 1; r_idx <= GAME_ROWS; r_idx++) for (let c_idx = 1; c_idx <= GAME_COLS; c_idx++) if (tempBoard[r_idx][c_idx] !== EMPTY_TILE) currentTiles.push({ r: r_idx, c: c_idx, type: tempBoard[r_idx][c_idx] });
@@ -339,10 +381,12 @@
             }
         }
 
-        // --- Game Logic (minor BGM calls added) ---
+        // --- Game Logic (MODIFIED handleTileClick, initGame) ---
         function initGame() {
-            console.log("Initializing game..."); stopTimer();
-            if (audioCtx && bgmEnabled) { // Check audioCtx before playing
+            console.log("Initializing game...");
+            stopTimer();
+            isProcessingMatch = false; // Reset animation flag
+            if (audioCtx && bgmEnabled) {
                 playTinyMusicBGM();
             }
             score = 0; time = 0; tilesRemaining = GAME_ROWS * GAME_COLS;
@@ -364,102 +408,245 @@
             if (!solvable) { console.warn(`Could not generate solvable board after ${MAX_RETRIES} retries.`); showMessage("警告：棋盘可能无解。请尝试新游戏。"); }
             board = generatedBoardCandidate; renderBoard(); startTimer(); console.log("Game initialized.");
         }
+
         function renderBoard() {
-            gameBoardElement.innerHTML = '';
+            gameBoardElement.innerHTML = ''; 
             setTimeout(() => {
                 const boardRect = gameBoardElement.getBoundingClientRect();
                 if (boardRect.width > 0 && boardRect.height > 0) {
                     const computedStyle = getComputedStyle(gameBoardElement);
                     lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
                     lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
-                    canvasCtx.lineWidth = 3; canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)';
+                    canvasCtx.lineWidth = 3;
+                    canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)';
                 }
-            }, 50);
+            }, 50); 
+
             for (let r = 1; r <= GAME_ROWS; r++) {
                 for (let c = 1; c <= GAME_COLS; c++) {
-                    const tileElement = document.createElement('div'); tileElement.classList.add('tile');
-                    tileElement.dataset.r = r; tileElement.dataset.c = c;
-                    if (board[r][c] === EMPTY_TILE) tileElement.classList.add('empty');
-                    else {
+                    const tileElement = document.createElement('div');
+                    tileElement.classList.add('tile');
+                    tileElement.dataset.r = r; 
+                    tileElement.dataset.c = c; 
+
+                    if (board[r][c] === EMPTY_TILE) {
+                        tileElement.classList.add('empty');
+                    } else {
                         tileElement.textContent = board[r][c];
                         tileElement.addEventListener('click', handleTileClick);
                         tileElement.addEventListener('touchstart', (e) => { e.preventDefault(); handleTileClick(e); }, { passive: false });
-                    } gameBoardElement.appendChild(tileElement);
+                    }
+                    gameBoardElement.appendChild(tileElement);
                 }
             }
         }
+
         function handleTileClick(event) {
-            initAudioContext(); playClickSound();
-            const clickedElement = event.currentTarget; if (clickedElement.classList.contains('empty')) return;
-            const r = parseInt(clickedElement.dataset.r), c = parseInt(clickedElement.dataset.c);
-            if (selectedTile && selectedTile.r === r && selectedTile.c === c) { clickedElement.classList.remove('selected'); selectedTile = null; return; }
-            clickedElement.classList.add('selected');
-            if (!selectedTile) selectedTile = { r, c, element: clickedElement, type: board[r][c] };
-            else {
-                const currentClickedTile = { r, c, element: clickedElement, type: board[r][c] };
-                if (selectedTile.type === currentClickedTile.type) {
-                    const path = findPathOnBoard(selectedTile, currentClickedTile, board);
-                    if (path) {
-                        playMatchSound(); drawPath(path);
-                        board[selectedTile.r][selectedTile.c] = EMPTY_TILE; board[currentClickedTile.r][currentClickedTile.c] = EMPTY_TILE;
-                        [selectedTile.element, currentClickedTile.element].forEach(el => { el.classList.add('empty'); el.classList.remove('selected'); el.textContent = ''; el.removeEventListener('click', handleTileClick); el.removeEventListener('touchstart', handleTileClick); });
-                        score += 10; tilesRemaining -= 2; updateScoreDisplay(); updateTilesRemainingDisplay();
-                        setTimeout(() => clearPathCanvas(), 300);
-                        if (tilesRemaining === 0) {
-                            stopTimer(); stopTinyMusicBGM(); playWinSound();
-                            showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
-                        }
-                    } else { selectedTile.element.classList.remove('selected'); currentClickedTile.element.classList.remove('selected'); }
-                } else { selectedTile.element.classList.remove('selected'); currentClickedTile.element.classList.remove('selected'); }
+            if (isProcessingMatch) return; 
+
+            initAudioContext(); 
+
+            const clickedElement = event.currentTarget;
+            if (clickedElement.classList.contains('empty') || clickedElement.classList.contains('disappearing')) return;
+
+            const r = parseInt(clickedElement.dataset.r);
+            const c = parseInt(clickedElement.dataset.c);
+
+            if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
+                playClickSound();
+                clickedElement.classList.remove('selected');
                 selectedTile = null;
+                return;
+            }
+
+            playClickSound(); 
+            clickedElement.classList.add('selected');
+
+            if (!selectedTile) { 
+                selectedTile = { r, c, element: clickedElement, type: board[r][c] };
+            } else { 
+                const currentClickedTile = { r, c, element: clickedElement, type: board[r][c] };
+                isProcessingMatch = true; 
+
+                const firstTileType = selectedTile.type; // Capture type from selectedTile
+                const firstTileElementForEffects = selectedTile.element; // Capture element from selectedTile for effects
+
+                if (firstTileType === currentClickedTile.type) { 
+                    const path = findPathOnBoard(selectedTile, currentClickedTile, board); // selectedTile object is still used for pathfinding
+                    if (path) {
+                        // --- CORRECT MATCH ---
+                        playMatchSound();
+                        drawPath(path);
+
+                        const firstTileToRemove = selectedTile.element; // This is firstTileElementForEffects
+                        const secondTileToRemove = currentClickedTile.element;
+                        const r1 = selectedTile.r, c1 = selectedTile.c;
+                        const r2 = currentClickedTile.r, c2 = currentClickedTile.c;
+
+                        firstTileToRemove.classList.add('disappearing');
+                        secondTileToRemove.classList.add('disappearing');
+                        firstTileToRemove.classList.remove('selected'); 
+                        secondTileToRemove.classList.remove('selected');
+
+                        let animationsCompleted = 0;
+                        const onAnimationEnd = () => {
+                            animationsCompleted++;
+                            if (animationsCompleted === 2) { 
+                                board[r1][c1] = EMPTY_TILE;
+                                board[r2][c2] = EMPTY_TILE;
+
+                                [firstTileToRemove, secondTileToRemove].forEach(el => {
+                                    el.innerHTML = ''; 
+                                    el.classList.add('empty');
+                                    el.classList.remove('disappearing'); 
+                                    el.removeEventListener('click', handleTileClick);
+                                    // The touchstart listener was an anonymous function, 
+                                    // relying on .empty class to disable interaction.
+                                });
+
+                                score += 10;
+                                tilesRemaining -= 2;
+                                updateScoreDisplay();
+                                updateTilesRemainingDisplay();
+
+                                setTimeout(() => clearPathCanvas(), 50); 
+
+                                if (tilesRemaining === 0) {
+                                    stopTimer();
+                                    stopTinyMusicBGM();
+                                    playWinSound();
+                                    showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
+                                }
+                                isProcessingMatch = false; 
+                            }
+                        };
+                        firstTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
+                        secondTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
+
+                    } else {
+                        // --- INCORRECT MATCH (same type, no path) ---
+                        if (firstTileElementForEffects) { // Check if element exists
+                           firstTileElementForEffects.classList.add('shaking');
+                        } else {
+                            console.error("selectedTile.element was null before shaking (same type). selectedTile:", selectedTile);
+                        }
+                        currentClickedTile.element.classList.add('shaking');
+                        if ('vibrate' in navigator) navigator.vibrate(150); 
+
+                        const firstElTimeout = firstTileElementForEffects; // Element for timeout
+                        const secondElTimeout = currentClickedTile.element; // Element for timeout
+
+                        setTimeout(() => {
+                            if (firstElTimeout) firstElTimeout.classList.remove('selected', 'shaking');
+                            if (secondElTimeout) secondElTimeout.classList.remove('selected', 'shaking');
+                            isProcessingMatch = false;
+                        }, 500); 
+                    }
+                } else {
+                    // --- INCORRECT MATCH (different types) ---
+                     if (firstTileElementForEffects) { // Check if element exists
+                        firstTileElementForEffects.classList.add('shaking');
+                    } else {
+                        console.error("selectedTile.element was null before shaking (different types). selectedTile:", selectedTile);
+                    }
+                    currentClickedTile.element.classList.add('shaking');
+                    if ('vibrate' in navigator) navigator.vibrate(150);
+                    
+                    const firstElTimeout_diff = firstTileElementForEffects; // Element for timeout
+                    const secondElTimeout_diff = currentClickedTile.element; // Element for timeout
+
+                    setTimeout(() => {
+                        if (firstElTimeout_diff) firstElTimeout_diff.classList.remove('selected', 'shaking');
+                        if (secondElTimeout_diff) secondElTimeout_diff.classList.remove('selected', 'shaking');
+                        isProcessingMatch = false;
+                    }, 500);
+                }
+                selectedTile = null; 
             }
         }
+
         function drawPath(pathPoints) {
-            if (!pathPoints || pathPoints.length < 2) return; clearPathCanvas();
-            const firstTileElement = gameBoardElement.querySelector(`.tile[data-r="${pathPoints[0].r}"][data-c="${pathPoints[0].c}"]`); if (!firstTileElement) return;
-            const tileWidth = firstTileElement.offsetWidth, tileHeight = firstTileElement.offsetHeight;
-            const gameBoardStyle = getComputedStyle(gameBoardElement); const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2);
+            if (!pathPoints || pathPoints.length < 2) return;
+            clearPathCanvas(); 
+
+            const firstTileElement = gameBoardElement.querySelector(`.tile[data-r="${pathPoints[0].r}"][data-c="${pathPoints[0].c}"]`);
+            if (!firstTileElement) { console.error("Cannot find first tile for path drawing"); return; }
+
+            const tileWidth = firstTileElement.offsetWidth;
+            const tileHeight = firstTileElement.offsetHeight;
+            const gameBoardStyle = getComputedStyle(gameBoardElement);
+            const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2); 
+
             canvasCtx.beginPath();
             for (let i = 0; i < pathPoints.length; i++) {
-                const point = pathPoints[i]; const x = (point.c - 1) * (tileWidth + gap) + tileWidth / 2; const y = (point.r - 1) * (tileHeight + gap) + tileHeight / 2;
-                if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
-            } canvasCtx.stroke();
+                const point = pathPoints[i];
+                const x = (point.c - 1) * (tileWidth + gap) + tileWidth / 2;
+                const y = (point.r - 1) * (tileHeight + gap) + tileHeight / 2;
+                if (i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+            }
+            canvasCtx.stroke();
         }
-        function clearPathCanvas() { if (lineCanvas.width > 0 && lineCanvas.height > 0) canvasCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height); }
+
+        function clearPathCanvas() {
+            if (lineCanvas.width > 0 && lineCanvas.height > 0) { 
+                canvasCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
+            }
+        }
+
         function updateScoreDisplay() { scoreElement.textContent = score; }
         function updateTimeDisplay() { timeElement.textContent = time; }
         function updateTilesRemainingDisplay() { tilesRemainingElement.textContent = tilesRemaining; }
-        function startTimer() { stopTimer(); timerInterval = setInterval(() => { time++; updateTimeDisplay(); }, 1000); }
+
+        function startTimer() {
+            stopTimer(); 
+            timerInterval = setInterval(() => {
+                time++;
+                updateTimeDisplay();
+            }, 1000);
+        }
         function stopTimer() { clearInterval(timerInterval); }
-        function showMessage(message) { messageText.textContent = message; messageBox.classList.remove('hidden'); }
-        messageOkBtn.addEventListener('click', () => { messageBox.classList.add('hidden'); });
+
+        function showMessage(message) {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden');
+        }
+        messageOkBtn.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+        });
+
         newGameBtn.addEventListener('click', initGame);
+
         window.addEventListener('resize', () => {
-            if (gameBoardElement.children.length > 0) {
-                 setTimeout(() => {
+            if (gameBoardElement.children.length > 0) { 
+                 setTimeout(() => { 
                     const boardRect = gameBoardElement.getBoundingClientRect();
                      if (boardRect.width > 0 && boardRect.height > 0) {
                         const computedStyle = getComputedStyle(gameBoardElement);
                         lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
                         lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
-                        clearPathCanvas();
+                        clearPathCanvas(); 
                     }
                 }, 100);
             }
         });
-        updateBGMButton(); // Set initial button text
-        initGame(); // Start the game
-		if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js') // 确保路径正确
-            .then(registration => {
-              console.log('ServiceWorker registered successfully with scope: ', registration.scope);
-            })
-            .catch(error => {
-              console.log('ServiceWorker registration failed: ', error);
+
+									 
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js') 
+                    .then(registration => {
+                        console.log('ServiceWorker registered successfully with scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
             });
-        });
-      }
+		   
+        }
+
+        updateBGMButton(); 
+        initGame(); 
     </script>
 </body>
 </html>
