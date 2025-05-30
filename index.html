@@ -185,10 +185,10 @@
         // --- Game Configuration ---
         const GAME_ROWS = 8;
         const GAME_COLS = 10;
-        const BOARD_ROWS = GAME_ROWS + 2; 
-        const BOARD_COLS = GAME_COLS + 2; 
+        const BOARD_ROWS = GAME_ROWS + 2; // For border/padding
+        const BOARD_COLS = GAME_COLS + 2; // For border/padding
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "�", "🦚"];
+        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -199,6 +199,7 @@
         let tilesRemaining = 0;
         let bgmEnabled = true; 
         let isProcessingMatch = false; 
+        let wasPlayingBeforeHidden = false; // 新增：跟踪页面隐藏前BGM是否在播放
 
         // --- Web Audio API Setup (for sound effects) ---
         let audioCtx = null; 
@@ -213,11 +214,12 @@
                 }
             }
 
-            if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused) {
+            if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused && !document.hidden) { // 只有页面可见时才尝试播放
                 console.log("Attempting to play BGM from initAudioAndBGM after user interaction.");
                 playMp3BGM(); 
             }
         }
+        // Ensure audio context is initialized after a user interaction
         document.body.addEventListener('click', initAudioAndBGM, { once: true });
         document.body.addEventListener('touchstart', initAudioAndBGM, { once: true });
 
@@ -242,6 +244,7 @@
         }
         console.log("DOM Elements: BGM Audio Element:", bgmAudioElement, "Toggle BGM Button:", toggleBGMBtn);
 
+        // BGM Audio Element Event Listeners (for debugging)
         if (bgmAudioElement) {
             bgmAudioElement.addEventListener('loadedmetadata', () => {
                 console.log(`BGM Event: loadedmetadata - Duration: ${bgmAudioElement.duration} seconds`);
@@ -262,6 +265,7 @@
             bgmAudioElement.addEventListener('waiting', () => { console.log("BGM Event: waiting"); });
         }
 
+        // --- Sound Effects ---
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
             if (!audioCtx || !audioCtx.destination) return; 
             const sfxVolume = 0.5; 
@@ -284,7 +288,7 @@
         function playMatchSound() { playSoundEffect('triangle', 520, 0.15, 0.5, 0.08, 900); } 
         function playWinSound() {
             if (!audioCtx) return; 
-            const freqs = [523.25, 659.25, 783.99, 1046.50]; 
+            const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
             freqs.forEach((freq, i) => {
                 setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.4), i * 120); 
             });
@@ -304,6 +308,14 @@
                 }
                 return;
             }
+            
+            // 新增：如果页面隐藏，则不播放
+            if (document.hidden) {
+                console.log("BGM play call skipped: Page is hidden.");
+                wasPlayingBeforeHidden = true; // 标记在隐藏前是想播放的
+                return;
+            }
+
 
             if (restart) {
                 bgmAudioElement.currentTime = 0;
@@ -316,14 +328,20 @@
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
                         console.log(`MP3 BGM ${restart ? '(re)started' : 'resumed'} successfully.`);
+                        wasPlayingBeforeHidden = true; // 成功播放，标记
                     }).catch(error => {
                         console.warn(`MP3 BGM ${restart ? '(re)start' : 'resume'} failed. Error:`, error);
+                        // Autoplay might be blocked, user interaction needed.
+                        // The initAudioAndBGM function handles initial play on interaction.
+                        wasPlayingBeforeHidden = false; // 播放失败
                     });
                 } else {
                      console.warn("bgmAudioElement.play() did not return a promise.");
+                     wasPlayingBeforeHidden = false; // 播放失败
                 }
             } else if (bgmEnabled && !bgmAudioElement.paused && !restart) {
                  console.log("BGM play call skipped: BGM is already playing and restart not requested.");
+                 wasPlayingBeforeHidden = true; // 已经在播放
             }
         }
 
@@ -356,6 +374,7 @@
                     playMp3BGM(!wasEnabled); 
                 } else {
                     console.log("Calling stopMp3BGM() from button click (BGM disabled).");
+                    wasPlayingBeforeHidden = false; // 用户手动关闭，清除标记
                     stopMp3BGM();
                 }
                 updateBGMButton(); 
@@ -366,41 +385,85 @@
         }
         
         // --- Pathfinding Logic ---
+        // Helper: Check if a cell is empty on a given board
         function isCellEmptyOnBoard(r, c, targetBoard) {
-            if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false;
-            if (!targetBoard[r]) return false; 
+            if (r < 0 || r >= BOARD_ROWS || c < 0 || c >= BOARD_COLS) return false; // Out of bounds
+            if (!targetBoard[r]) return false; // Row doesn't exist (shouldn't happen with proper init)
             return targetBoard[r][c] === EMPTY_TILE;
         }
+        // Helper: Check if a straight line between two points is clear on a given board
         function isLineClearOnBoard(p1, p2, isHorizontal, targetBoard) {
-            if (isHorizontal) {
+            if (isHorizontal) { // Horizontal line
                 const r = p1.r; const minC = Math.min(p1.c, p2.c); const maxC = Math.max(p1.c, p2.c);
                 for (let c = minC + 1; c < maxC; c++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
-            } else {
+            } else { // Vertical line
                 const c = p1.c; const minR = Math.min(p1.r, p2.r); const maxR = Math.max(p1.r, p2.r);
                 for (let r = minR + 1; r < maxR; r++) if (!isCellEmptyOnBoard(r, c, targetBoard)) return false;
             }
             return true;
         }
+        // Main pathfinding function using a given board
         function findPathOnBoard(p1, p2, targetBoard) {
-            if (p1.r === p2.r && p1.c === p2.c) return null; if (p1.type !== p2.type) return null;
+            if (p1.r === p2.r && p1.c === p2.c) return null; // Same tile
+            if (p1.type !== p2.type) return null; // Different types
+
+            // 0 turns (direct line)
             if (p1.r === p2.r && isLineClearOnBoard(p1, p2, true, targetBoard)) return [p1, p2];
             if (p1.c === p2.c && isLineClearOnBoard(p1, p2, false, targetBoard)) return [p1, p2];
-            const c1 = { r: p1.r, c: p2.c }; if (isCellEmptyOnBoard(c1.r, c1.c, targetBoard) && isLineClearOnBoard(p1, c1, true, targetBoard) && isLineClearOnBoard(c1, p2, false, targetBoard)) return [p1, c1, p2];
-            const c2 = { r: p2.r, c: p1.c }; if (isCellEmptyOnBoard(c2.r, c2.c, targetBoard) && isLineClearOnBoard(p1, c2, false, targetBoard) && isLineClearOnBoard(c2, p2, true, targetBoard)) return [p1, c2, p2];
+
+            // 1 turn
+            const c1 = { r: p1.r, c: p2.c }; // Corner point 1
+            if (isCellEmptyOnBoard(c1.r, c1.c, targetBoard) && isLineClearOnBoard(p1, c1, true, targetBoard) && isLineClearOnBoard(c1, p2, false, targetBoard)) return [p1, c1, p2];
+            const c2 = { r: p2.r, c: p1.c }; // Corner point 2
+            if (isCellEmptyOnBoard(c2.r, c2.c, targetBoard) && isLineClearOnBoard(p1, c2, false, targetBoard) && isLineClearOnBoard(c2, p2, true, targetBoard)) return [p1, c2, p2];
+            
+            // 2 turns (iterating through all possible intermediate points on the border or extension lines)
+            // Horizontal extensions first
             for (let ci = 0; ci < BOARD_COLS; ci++) {
-                const pi = { r: p1.r, c: ci }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, true, targetBoard)) continue;
-                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.c === p1.c) && (pic1.r === p1.r && pic1.c === p2.c))) return [p1, pi, pic1, p2];
-                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p2.r && pic2.c === p1.c))) return [p1, pi, pic2, p2];
+                const pi = { r: p1.r, c: ci }; // Intermediate point on p1's row
+                // pi must be empty OR be p2 itself (for paths that "touch" p2 via an empty cell)
+                if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue;
+                if (!isLineClearOnBoard(p1, pi, true, targetBoard)) continue; // Path from p1 to pi must be clear
+
+                // Try connecting pi to p2 with one turn
+                const pic1 = { r: pi.r, c: p2.c }; // Corner for pi -> p2 (horizontal from pi, then vertical)
+                if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) {
+                    // Avoid redundant points if pi is already on the same column as p1 and pic1 is the same as pi
+                     if (!((pi.r === p1.r && pi.c === p1.c) && (pic1.r === p1.r && pic1.c === p2.c))) { // Avoid p1 -> p1_col_p2_c -> p2 if p1_col_p2_c is same as pi
+                        return [p1, pi, pic1, p2];
+                     }
+                }
+                const pic2 = { r: p2.r, c: pi.c }; // Corner for pi -> p2 (vertical from pi, then horizontal)
+                 if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) {
+                    // Avoid redundant points if pi is already on the same row as p2 and pic2 is the same as pi
+                     if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p2.r && pic2.c === p1.c))) { // Avoid p1 -> p2_row_p1_c -> p2 if p2_row_p1_c is same as pi
+                        return [p1, pi, pic2, p2];
+                     }
+                }
             }
+            // Vertical extensions next
             for (let ri = 0; ri < BOARD_ROWS; ri++) {
-                const pi = { r: ri, c: p1.c }; if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue; if (!isLineClearOnBoard(p1, pi, false, targetBoard)) continue;
-                const pic1 = { r: pi.r, c: p2.c }; if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) if (!((pi.r === p1.r && pi.r === p2.r) && (pic1.c === p1.c && pic1.c === p2.c))) return [p1, pi, pic1, p2];
-                const pic2 = { r: p2.r, c: pi.c }; if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p1.r && pic2.r === p2.r))) return [p1, pi, pic2, p2];
+                const pi = { r: ri, c: p1.c }; // Intermediate point on p1's column
+                if (!isCellEmptyOnBoard(pi.r, pi.c, targetBoard) && !(pi.r === p2.r && pi.c === p2.c)) continue;
+                if (!isLineClearOnBoard(p1, pi, false, targetBoard)) continue;
+
+                const pic1 = { r: pi.r, c: p2.c };
+                if ((isCellEmptyOnBoard(pic1.r, pic1.c, targetBoard) || (pic1.r === p2.r && pic1.c === p2.c)) && isLineClearOnBoard(pi, pic1, true, targetBoard) && isLineClearOnBoard(pic1, p2, false, targetBoard)) {
+                     if (!((pi.r === p1.r && pi.r === p2.r) && (pic1.c === p1.c && pic1.c === p2.c))) {
+                        return [p1, pi, pic1, p2];
+                     }
+                }
+                const pic2 = { r: p2.r, c: pi.c };
+                if ((isCellEmptyOnBoard(pic2.r, pic2.c, targetBoard) || (pic2.r === p2.r && pic2.c === p2.c)) && isLineClearOnBoard(pi, pic2, false, targetBoard) && isLineClearOnBoard(pic2, p2, true, targetBoard)) {
+                     if (!((pi.c === p1.c && pi.c === p2.c) && (pic2.r === p1.r && pic2.r === p2.r))) {
+                        return [p1, pi, pic2, p2];
+                     }
+                }
             }
-            return null;
+            return null; // No path found
         }
 
-        // --- Solvability Check (Function definition was missing) ---
+        // --- Solvability Check ---
         function isSolvable(boardToCheck) {
             // Create a deep copy of the board to simulate moves without affecting the actual game board
             let tempBoard = JSON.parse(JSON.stringify(boardToCheck));
@@ -456,11 +519,14 @@
             isProcessingMatch = false; 
             
             if (bgmAudioElement) {
-                if (bgmEnabled) {
-                    console.log("initGame: BGM is enabled. Requesting restart.");
+                if (bgmEnabled && !document.hidden) { // 只有页面可见时才尝试播放
+                    console.log("initGame: BGM is enabled and page visible. Requesting restart.");
                     playMp3BGM(true); 
+                } else if (bgmEnabled && document.hidden) {
+                    console.log("initGame: BGM is enabled but page hidden. Will play when visible.");
+                    wasPlayingBeforeHidden = true; // 标记在隐藏前是想播放的
                 } else if (!bgmAudioElement.paused) { 
-                    console.log("initGame: BGM is disabled but was playing. Stopping it.");
+                    console.log("initGame: BGM is disabled or page hidden but was playing. Stopping it.");
                     stopMp3BGM();
                 }
             }
@@ -476,42 +542,50 @@
                 if (EMOJIS_POOL.length < numPairs) { console.error("Not enough emojis!"); showMessage("错误：表情符号不足！"); return; }
                 const gameEmojis = EMOJIS_POOL.slice(0, numPairs);
                 for (let i = 0; i < numPairs; i++) tilesToPlace.push(gameEmojis[i], gameEmojis[i]);
+                // Shuffle tiles
                 for (let i = tilesToPlace.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[tilesToPlace[i], tilesToPlace[j]] = [tilesToPlace[j], tilesToPlace[i]]; }
+                // Initialize board with empty border
                 generatedBoardCandidate = Array(BOARD_ROWS).fill(null).map(() => Array(BOARD_COLS).fill(EMPTY_TILE));
+                // Place shuffled tiles onto the game area
                 let tileIndex = 0; for (let r = 1; r <= GAME_ROWS; r++) for (let c = 1; c <= GAME_COLS; c++) generatedBoardCandidate[r][c] = tilesToPlace[tileIndex++];
-                solvable = isSolvable(generatedBoardCandidate); // This was the line causing the error
+                
+                solvable = isSolvable(generatedBoardCandidate);
                 retries++;
                 if(solvable) console.log(`Solvable board found after ${retries} retries.`); else if (retries % 20 === 0) console.log(`Retry ${retries}... still searching.`);
             } while (!solvable && retries < MAX_RETRIES);
+
             if (!solvable) { console.warn(`Could not generate solvable board after ${MAX_RETRIES} retries.`); showMessage("警告：棋盘可能无解。请尝试新游戏。"); }
+            
             board = generatedBoardCandidate; renderBoard(); startTimer(); console.log("Game initialized.");
         }
 
         function renderBoard() {
-            gameBoardElement.innerHTML = ''; 
+            gameBoardElement.innerHTML = ''; // Clear previous board
+            // Resize canvas after board elements are in DOM and have dimensions
             setTimeout(() => {
                 const boardRect = gameBoardElement.getBoundingClientRect();
                 if (boardRect.width > 0 && boardRect.height > 0) {
                     const computedStyle = getComputedStyle(gameBoardElement);
                     lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
                     lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
-                    canvasCtx.lineWidth = 3;
-                    canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)';
+                    canvasCtx.lineWidth = 3; // Line thickness
+                    canvasCtx.strokeStyle = 'rgba(255, 0, 150, 0.7)'; // Line color (pinkish)
                 }
-            }, 50); 
+            }, 50); // Small delay to ensure layout is complete
 
-            for (let r = 1; r <= GAME_ROWS; r++) {
+            for (let r = 1; r <= GAME_ROWS; r++) { // Iterate only through game area, not border
                 for (let c = 1; c <= GAME_COLS; c++) {
                     const tileElement = document.createElement('div');
                     tileElement.classList.add('tile');
-                    tileElement.dataset.r = r; 
-                    tileElement.dataset.c = c; 
+                    tileElement.dataset.r = r; // Store board row (with border offset)
+                    tileElement.dataset.c = c; // Store board col (with border offset)
 
                     if (board[r][c] === EMPTY_TILE) {
                         tileElement.classList.add('empty');
                     } else {
                         tileElement.textContent = board[r][c];
                         tileElement.addEventListener('click', handleTileClick);
+                        // Add touchstart for mobile, prevent default to avoid double tap zoom interfering with clicks
                         tileElement.addEventListener('touchstart', (e) => { e.preventDefault(); handleTileClick(e); }, { passive: false });
                     }
                     gameBoardElement.appendChild(tileElement);
@@ -520,15 +594,16 @@
         }
 
         function handleTileClick(event) {
-            if (isProcessingMatch) return; 
+            if (isProcessingMatch) return; // Prevent clicks during match processing/animation
             playClickSound();
 
-            const clickedElement = event.currentTarget;
+            const clickedElement = event.currentTarget; // Use currentTarget for delegated events if any
             if (clickedElement.classList.contains('empty') || clickedElement.classList.contains('disappearing')) return;
 
             const r = parseInt(clickedElement.dataset.r);
             const c = parseInt(clickedElement.dataset.c);
 
+            // Deselect if clicking the same selected tile
             if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
                 clickedElement.classList.remove('selected');
                 selectedTile = null;
@@ -536,16 +611,17 @@
             }
             clickedElement.classList.add('selected');
 
-            if (!selectedTile) { 
+            if (!selectedTile) { // First tile selected
                 selectedTile = { r, c, element: clickedElement, type: board[r][c] };
-            } else { 
+            } else { // Second tile selected, try to match
                 const currentClickedTile = { r, c, element: clickedElement, type: board[r][c] };
-                isProcessingMatch = true; 
+                isProcessingMatch = true; // Lock input
 
+                // Store selectedTile's properties before it's nulled, for animations
                 const firstTileType = selectedTile.type; 
                 const firstTileElementForEffects = selectedTile.element; 
 
-                if (firstTileType === currentClickedTile.type) { 
+                if (firstTileType === currentClickedTile.type) { // Same type, check path
                     const path = findPathOnBoard(selectedTile, currentClickedTile, board); 
                     if (path) {
                         playMatchSound();
@@ -556,6 +632,7 @@
                         const r1 = selectedTile.r, c1 = selectedTile.c;
                         const r2 = currentClickedTile.r, c2 = currentClickedTile.c;
 
+                        // Add disappearing animation class
                         firstTileToRemove.classList.add('disappearing');
                         secondTileToRemove.classList.add('disappearing');
                         firstTileToRemove.classList.remove('selected'); 
@@ -564,15 +641,16 @@
                         let animationsCompleted = 0;
                         const onAnimationEnd = () => {
                             animationsCompleted++;
-                            if (animationsCompleted === 2) { 
+                            if (animationsCompleted === 2) { // Both animations finished
                                 board[r1][c1] = EMPTY_TILE;
                                 board[r2][c2] = EMPTY_TILE;
 
                                 [firstTileToRemove, secondTileToRemove].forEach(el => {
-                                    el.innerHTML = ''; 
+                                    el.innerHTML = ''; // Clear content
                                     el.classList.add('empty');
                                     el.classList.remove('disappearing'); 
-                                    el.removeEventListener('click', handleTileClick);
+                                    el.removeEventListener('click', handleTileClick); // Make unclickable
+                                    // el.removeEventListener('touchstart', handleTileClick); // Also remove touch if added separately
                                 });
 
                                 score += 10;
@@ -580,21 +658,21 @@
                                 updateScoreDisplay();
                                 updateTilesRemainingDisplay();
 
-                                setTimeout(() => clearPathCanvas(), 50); 
+                                setTimeout(() => clearPathCanvas(), 50); // Clear line after a short delay
 
                                 if (tilesRemaining === 0) {
                                     stopTimer();
-                                    stopMp3BGM(); 
+                                    if (bgmEnabled) stopMp3BGM(); // Stop BGM on win
                                     playWinSound();
                                     showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
                                 }
-                                isProcessingMatch = false; 
+                                isProcessingMatch = false; // Unlock input
                             }
                         };
                         firstTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
                         secondTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
 
-                    } else {
+                    } else { // No path, shake tiles
                         if (firstTileElementForEffects) { 
                            firstTileElementForEffects.classList.add('shaking');
                         } else {
@@ -609,10 +687,10 @@
                         setTimeout(() => {
                             if (firstElTimeout) firstElTimeout.classList.remove('selected', 'shaking');
                             if (secondElTimeout) secondElTimeout.classList.remove('selected', 'shaking');
-                            isProcessingMatch = false;
-                        }, 500); 
+                            isProcessingMatch = false; // Unlock input
+                        }, 500); // Duration of shake animation
                     }
-                } else {
+                } else { // Different types, shake tiles
                      if (firstTileElementForEffects) { 
                         firstTileElementForEffects.classList.add('shaking');
                     } else {
@@ -627,27 +705,38 @@
                     setTimeout(() => {
                         if (firstElTimeout_diff) firstElTimeout_diff.classList.remove('selected', 'shaking');
                         if (secondElTimeout_diff) secondElTimeout_diff.classList.remove('selected', 'shaking');
-                        isProcessingMatch = false;
+                        isProcessingMatch = false; // Unlock input
                     }, 500);
                 }
-                selectedTile = null; 
+                selectedTile = null; // Reset selection after attempting a match
             }
         }
 
         function drawPath(pathPoints) {
             if (!pathPoints || pathPoints.length < 2) return;
-            clearPathCanvas(); 
+            clearPathCanvas(); // Clear previous path
+            // Get a reference tile to calculate dimensions (assumes all tiles are same size)
             const firstTileElement = gameBoardElement.querySelector(`.tile[data-r="${pathPoints[0].r}"][data-c="${pathPoints[0].c}"]`);
             if (!firstTileElement) { console.error("Cannot find first tile for path drawing"); return; }
+
             const tileWidth = firstTileElement.offsetWidth;
             const tileHeight = firstTileElement.offsetHeight;
             const gameBoardStyle = getComputedStyle(gameBoardElement);
+            // Use the actual gap from CSS, fallback if not found or zero
             const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2); 
+
             canvasCtx.beginPath();
             for (let i = 0; i < pathPoints.length; i++) {
                 const point = pathPoints[i];
+                // Calculate center of the tile on the game board (not the internal board array)
+                // The r, c in pathPoints are 1-indexed for the game area (board[1][1] to board[GAME_ROWS][GAME_COLS])
+                // but drawing needs to be relative to the gameBoardElement's grid cells.
+                // The tiles themselves are direct children of gameBoardElement.
+                // Their position is (point.c-1) * (tileWidth + gap) and (point.r-1) * (tileHeight + gap)
+                // relative to the gameBoardElement's content box (after padding).
                 const x = (point.c - 1) * (tileWidth + gap) + tileWidth / 2;
                 const y = (point.r - 1) * (tileHeight + gap) + tileHeight / 2;
+
                 if (i === 0) canvasCtx.moveTo(x, y);
                 else canvasCtx.lineTo(x, y);
             }
@@ -655,7 +744,7 @@
         }
 
         function clearPathCanvas() {
-            if (lineCanvas.width > 0 && lineCanvas.height > 0) { 
+            if (lineCanvas.width > 0 && lineCanvas.height > 0) { // Check if canvas has dimensions
                 canvasCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
             }
         }
@@ -665,7 +754,7 @@
         function updateTilesRemainingDisplay() { tilesRemainingElement.textContent = tilesRemaining; }
 
         function startTimer() {
-            stopTimer(); 
+            stopTimer(); // Clear any existing timer
             timerInterval = setInterval(() => {
                 time++;
                 updateTimeDisplay();
@@ -683,23 +772,51 @@
 
         newGameBtn.addEventListener('click', initGame);
 
+        // Handle window resize to readjust canvas
         window.addEventListener('resize', () => {
-            if (gameBoardElement.children.length > 0) { 
-                 setTimeout(() => { 
+            if (gameBoardElement.children.length > 0) { // Only if board is rendered
+                 setTimeout(() => { // Debounce or delay slightly for layout to settle
                     const boardRect = gameBoardElement.getBoundingClientRect();
                      if (boardRect.width > 0 && boardRect.height > 0) {
                         const computedStyle = getComputedStyle(gameBoardElement);
                         lineCanvas.width = boardRect.width - (parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight));
                         lineCanvas.height = boardRect.height - (parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom));
-                        clearPathCanvas(); 
+                        clearPathCanvas(); // Clear path as its coordinates might be off
                     }
                 }, 100);
             }
         });
 
+        // --- Page Visibility API Handler ---
+        function handleVisibilityChange() {
+            if (!bgmAudioElement) return;
+
+            if (document.hidden) {
+                // Page is hidden
+                if (bgmEnabled && !bgmAudioElement.paused) {
+                    wasPlayingBeforeHidden = true; // 记录BGM在隐藏前正在播放
+                    stopMp3BGM();
+                    console.log("Page hidden, BGM paused.");
+                } else {
+                    wasPlayingBeforeHidden = false; // 如果BGM已禁用或已暂停，则不标记
+                }
+            } else {
+                // Page is visible
+                if (bgmEnabled && wasPlayingBeforeHidden) {
+                    playMp3BGM(); // 尝试恢复播放
+                    console.log("Page visible, BGM resumed.");
+                }
+                wasPlayingBeforeHidden = false; // 重置标记，因为页面已可见
+            }
+        }
+
+        document.addEventListener("visibilitychange", handleVisibilityChange, false);
+
+
+        // --- Service Worker Registration ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js') 
+                navigator.serviceWorker.register('./sw.js') // Ensure sw.js is in the correct path
                     .then(registration => {
                         console.log('ServiceWorker registered successfully with scope: ', registration.scope);
                     })
@@ -709,8 +826,9 @@
             });
         }
 
-        updateBGMButton(); 
-        initGame(); 
+        // Initial setup
+        updateBGMButton(); // Set initial button text
+        initGame(); // Start the game
     </script>
 </body>
 </html>
