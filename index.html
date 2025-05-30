@@ -191,34 +191,38 @@
         let timerInterval = null;
         let tilesRemaining = 0;
         let bgmEnabled = true; // BGM default on
-        // bgmSequence removed
-        let isProcessingMatch = false; // Flag to prevent clicks during animation
+							  
+        let isProcessingMatch = false; 
 
         // --- Web Audio API Setup (for sound effects) ---
-        // TinyMusic related parts removed from here
-        let audioCtx = null; // Still used for sound effects
+													
+        let audioCtx = null; 
 
-        function initAudioContext() { // Renamed to avoid confusion, solely for sound effects now
+        function initAudioAndBGM() { // Renamed for clarity
+            // Initialize Web Audio API for sound effects
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    console.log("AudioContext initialized for sound effects.");
-                    // Attempt to play BGM on first interaction if enabled
-                    if (bgmEnabled) {
-                        playMidiBGM();
-                    }
+                    console.log("AudioContext for sound effects initialized by user interaction.");
+																		  
+									 
+									  
+					 
                 } catch (e) {
-                    console.error("Web Audio API is not supported for sound effects in this browser.", e);
-                    // BGM enabling is separate now
+                    console.error("Web Audio API (for sound effects) is not supported in this browser.", e);
+												   
                 }
-            } else if (audioCtx && bgmEnabled && bgmAudioElement.paused) {
-                // If context exists and BGM was meant to play but is paused (e.g. due to tab switch)
+            }
+
+            // Attempt to play BGM after user interaction, if enabled and audio element is ready and paused
+            if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused) {
+                console.log("Attempting to play BGM from initAudioAndBGM after user interaction.");
                 playMidiBGM();
             }
         }
-        // Initialize on first user interaction (click or touch) to comply with autoplay policies
-        document.body.addEventListener('click', initAudioContext, { once: true });
-        document.body.addEventListener('touchstart', initAudioContext, { once: true });
+        // Listen for the first user interaction to initialize audio capabilities
+        document.body.addEventListener('click', initAudioAndBGM, { once: true });
+        document.body.addEventListener('touchstart', initAudioAndBGM, { once: true });
 
 
         // --- DOM Elements ---
@@ -233,11 +237,16 @@
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
         const messageOkBtn = document.getElementById('message-ok-btn');
-        const bgmAudioElement = document.getElementById('bgm-audio'); // Get the audio element
+        const bgmAudioElement = document.getElementById('bgm-audio'); 
+        // Log if DOM elements are found (useful for debugging)
+        console.log("DOM Elements: BGM Audio Element:", bgmAudioElement, "Toggle BGM Button:", toggleBGMBtn);
 
         // --- Sound Effect Functions (Direct Web Audio API) ---
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
-            if (!audioCtx || !audioCtx.destination) return; // Check if audioCtx is available for sound effects
+            if (!audioCtx || !audioCtx.destination) {
+                // console.warn("Sound effect skipped: AudioContext not ready or not supported for sound effects.");
+                return; 
+            }
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
 
@@ -260,8 +269,8 @@
         function playClickSound() { playSoundEffect('sine', 600, 0.1, 0.08); }
         function playMatchSound() { playSoundEffect('triangle', 440, 0.2, 0.12, 0.1, 880); }
         function playWinSound() {
-            if (!audioCtx) return; // Check for sound effects context
-            const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            if (!audioCtx) return; 
+            const freqs = [523.25, 659.25, 783.99, 1046.50]; 
             freqs.forEach((freq, i) => {
                 setTimeout(() => playSoundEffect('sine', freq, 0.15, 0.1), i * 120);
             });
@@ -269,37 +278,79 @@
 
         // --- MIDI Background Music Control ---
         function playMidiBGM() {
-            if (bgmAudioElement && bgmAudioElement.paused && bgmEnabled) {
-                bgmAudioElement.play().catch(error => {
-                    console.warn("BGM play failed (likely due to autoplay policy):", error);
-                    // User interaction will be needed to start it via the initAudioContext or BGM button.
-                });
-                console.log("MIDI BGM attempting to play");
+            if (!bgmAudioElement) {
+                console.error("Cannot play BGM: audio element not found (bgmAudioElement is null).");
+                return;
+																										  
+				   
+														   
+            }
+            if (bgmEnabled && bgmAudioElement.paused) {
+                console.log("Attempting to play MIDI BGM (bgmAudioElement.play())...");
+                // The play() method returns a Promise.
+                const playPromise = bgmAudioElement.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log("MIDI BGM playback started successfully via promise.");
+                    }).catch(error => {
+                        console.warn("MIDI BGM play failed via promise. Error:", error);
+                        // This often happens due to autoplay policies if not initiated by direct user action.
+                        // Or if the browser cannot play the MIDI file.
+                    });
+                } else {
+                     console.warn("bgmAudioElement.play() did not return a promise. Playback might not be supported or an issue occurred.");
+                }
+            } else if (!bgmEnabled) {
+                console.log("BGM play call skipped: BGM is currently disabled (bgmEnabled=false).");
+            } else if (!bgmAudioElement.paused) {
+                console.log("BGM play call skipped: BGM is already playing.");
             }
         }
 
         function stopMidiBGM() {
             if (bgmAudioElement) {
                 bgmAudioElement.pause();
-                // bgmAudioElement.currentTime = 0; // Optional: Reset to start if desired
-                console.log("MIDI BGM stopped");
+                console.log("MIDI BGM stopped (pause() called on bgmAudioElement).");
+            } else {
+                 console.error("Cannot stop BGM: audio element not found (bgmAudioElement is null).");
             }
         }
 
         function updateBGMButton() {
-            toggleBGMBtn.textContent = `BGM: ${bgmEnabled ? '开' : '关'}`;
+            if (toggleBGMBtn) {
+                toggleBGMBtn.textContent = `BGM: ${bgmEnabled ? '开' : '关'}`;
+		 
+
+													  
+																											   
+									 
+							 
+							  
+            } else {
+                console.error("Cannot update BGM button text: toggleBGMBtn element not found.");
+            }
+        }
+        
+        if (toggleBGMBtn) { // Ensure button exists before adding listener
+            toggleBGMBtn.addEventListener('click', () => {
+                console.log("BGM button clicked. Current bgmEnabled state BEFORE toggle:", bgmEnabled);
+                bgmEnabled = !bgmEnabled; // Toggle the state
+                console.log("bgmEnabled toggled. New state:", bgmEnabled);
+
+                if (bgmEnabled) {
+                    console.log("Calling playMidiBGM() due to button click (BGM enabled).");
+                    playMidiBGM();
+                } else {
+                    console.log("Calling stopMidiBGM() due to button click (BGM disabled).");
+                    stopMidiBGM();
+                }
+                updateBGMButton(); // Update the button text to reflect the new state
+                console.log("BGM button text updated after click.");
+            });
+        } else {
+            console.error("Could not add event listener: toggleBGMBtn element not found.");
         }
 
-        toggleBGMBtn.addEventListener('click', () => {
-            // initAudioContext(); // No longer needed here for BGM, but good for sound effects if not yet init
-            bgmEnabled = !bgmEnabled;
-            if (bgmEnabled) {
-                playMidiBGM();
-            } else {
-                stopMidiBGM();
-            }
-            updateBGMButton();
-        });
 
         // --- Pathfinding Logic (unchanged) ---
         function isCellEmptyOnBoard(r, c, targetBoard) {
@@ -352,17 +403,19 @@
             }
         }
 
-        // --- Game Logic (MODIFIED for MIDI BGM) ---
+        // --- Game Logic ---
         function initGame() {
             console.log("Initializing game...");
             stopTimer();
-            isProcessingMatch = false; // Reset animation flag
+            isProcessingMatch = false; 
             
-            if (bgmEnabled) { // Try to play BGM if enabled
-                playMidiBGM();
-            } else {
-                stopMidiBGM(); // Ensure it's stopped if disabled
+            if (bgmAudioElement) {
+                if (!bgmEnabled && !bgmAudioElement.paused) {
+                    console.log("initGame: BGM is disabled but was playing. Stopping it.");
+                    stopMidiBGM();
+                }
             }
+            updateBGMButton(); 
 
             score = 0; time = 0; tilesRemaining = GAME_ROWS * GAME_COLS;
             updateScoreDisplay(); updateTimeDisplay(); updateTilesRemainingDisplay();
@@ -419,8 +472,8 @@
         function handleTileClick(event) {
             if (isProcessingMatch) return; 
 
-            // initAudioContext(); // For sound effects, called on body interaction
-            // Play click sound for tile interaction
+																				   
+													
             playClickSound();
 
 
@@ -431,13 +484,13 @@
             const c = parseInt(clickedElement.dataset.c);
 
             if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
-                // playClickSound(); // Already played above
+															
                 clickedElement.classList.remove('selected');
                 selectedTile = null;
                 return;
             }
 
-            // playClickSound(); // Already played above
+														
             clickedElement.classList.add('selected');
 
             if (!selectedTile) { 
@@ -452,7 +505,7 @@
                 if (firstTileType === currentClickedTile.type) { 
                     const path = findPathOnBoard(selectedTile, currentClickedTile, board); 
                     if (path) {
-                        // --- CORRECT MATCH ---
+												
                         playMatchSound();
                         drawPath(path);
 
@@ -489,7 +542,7 @@
 
                                 if (tilesRemaining === 0) {
                                     stopTimer();
-                                    stopMidiBGM(); // Stop MIDI BGM on win
+                                    stopMidiBGM(); 
                                     playWinSound();
                                     showMessage(`恭喜！你赢了！得分: ${score}, 时间: ${time} 秒`);
                                 }
@@ -619,8 +672,9 @@
             });
         }
 
-        updateBGMButton(); 
-        initGame(); 
+        // Initial setup calls
+        updateBGMButton(); // Set initial button text based on bgmEnabled state
+        initGame(); // Start the game
     </script>
 </body>
 </html>
