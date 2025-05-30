@@ -181,7 +181,7 @@
         const BOARD_ROWS = GAME_ROWS + 2; 
         const BOARD_COLS = GAME_COLS + 2; 
         const EMPTY_TILE = null;
-        const EMOJIS_POOL = ["🐹", "🐶", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
+        const EMOJIS_POOL = ["🐹", "�", "🐱", "🐭", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦋", "🐛", "🐝", "🐞", "🐢", "🐍", "🐙", "🦑", "🦀", "🦞", "🐠", "🐬", "🐳", "🦈", "🦓", "🦒", "🐘", "🦏", "🦛", "🐐", "🐑", "🐖", "🦔", "🐿️", "🦘", "🦥", "🦦", "🦢", "🦜", "🦩", "🦚"];
 
         // --- Game State ---
         let board = [];
@@ -208,7 +208,7 @@
 
             if (bgmEnabled && bgmAudioElement && bgmAudioElement.paused) {
                 console.log("Attempting to play BGM from initAudioAndBGM after user interaction.");
-                playMp3BGM(); // Default play, not necessarily restart
+                playMp3BGM(); 
             }
         }
         document.body.addEventListener('click', initAudioAndBGM, { once: true });
@@ -229,88 +229,46 @@
         const messageOkBtn = document.getElementById('message-ok-btn');
         const bgmAudioElement = document.getElementById('bgm-audio'); 
         
-								 
         if (bgmAudioElement) {
             bgmAudioElement.volume = 0.2; 
             console.log(`Initial BGM volume set to: ${bgmAudioElement.volume}`);
         }
         console.log("DOM Elements: BGM Audio Element:", bgmAudioElement, "Toggle BGM Button:", toggleBGMBtn);
 
-
-																  
         if (bgmAudioElement) {
             bgmAudioElement.addEventListener('loadedmetadata', () => {
                 console.log(`BGM Event: loadedmetadata - Duration: ${bgmAudioElement.duration} seconds`);
             });
             bgmAudioElement.addEventListener('canplay', () => { console.log("BGM Event: canplay"); });
-																			   
-			   
             bgmAudioElement.addEventListener('canplaythrough', () => { console.log("BGM Event: canplaythrough"); });
-																													   
-			   
             bgmAudioElement.addEventListener('play', () => { console.log("BGM Event: play"); });
-																				  
-			   
             bgmAudioElement.addEventListener('playing', () => { console.log("BGM Event: playing"); });
-																										
-			   
             bgmAudioElement.addEventListener('pause', () => { console.log("BGM Event: pause"); });
-																			
-			   
             bgmAudioElement.addEventListener('ended', () => { console.log("BGM Event: ended"); });
-																											 
-			   
             bgmAudioElement.addEventListener('error', (e) => {
                 console.error("BGM Event: error - An error occurred.");
-											
                 if (bgmAudioElement.error) console.error(`Error code: ${bgmAudioElement.error.code}, Message: ${bgmAudioElement.error.message}`);
-						
                 else console.error("BGM error object not available.", e);
-				 
             });
             bgmAudioElement.addEventListener('stalled', () => { console.warn("BGM Event: stalled"); });
-																																	
-			   
             bgmAudioElement.addEventListener('suspend', () => { console.log("BGM Event: suspend"); });
-																																		
-			   
             bgmAudioElement.addEventListener('waiting', () => { console.log("BGM Event: waiting"); });
-																												
-			   
-																
-														  
-																										  
-															  
-									   
-																														  
-					 
-				 
-			   
         }
 
-
-																
         function playSoundEffect(type, frequency, duration, volume = 0.1, freqEndTime = null, freqEndValue = null) {
             if (!audioCtx || !audioCtx.destination) return; 
-						
-			 
-															  
             const sfxVolume = 0.5; 
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-
             oscillator.type = type;
             oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
             if (freqEndTime && freqEndValue) {
                 oscillator.frequency.exponentialRampToValueAtTime(freqEndValue, audioCtx.currentTime + freqEndTime);
             }
-
             gainNode.gain.setValueAtTime(sfxVolume, audioCtx.currentTime); 
             gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
-
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-
             oscillator.start(audioCtx.currentTime);
             oscillator.stop(audioCtx.currentTime + duration);
         }
@@ -326,38 +284,59 @@
         }
 
         // --- MP3 Background Music Control ---
-        function playMp3BGM(restart = false) { // Added restart parameter
+        function playMp3BGM(restart = false) {
             if (!bgmAudioElement) {
                 console.error("Cannot play BGM: audio element not found.");
                 return;
             }
-            if (restart) {
-                bgmAudioElement.currentTime = 0; // Restart the BGM
-                console.log("BGM restart requested: currentTime set to 0.");
+
+            if (!bgmEnabled) {
+                console.log("BGM play call skipped: BGM is disabled (bgmEnabled=false).");
+                // Ensure it's actually stopped if it was somehow playing and then disabled
+                if (!bgmAudioElement.paused) {
+                    stopMp3BGM(); 
+                }
+                return;
             }
-            if (bgmEnabled && bgmAudioElement.paused) {
-                console.log("Attempting to play MP3 BGM (bgmAudioElement.play())...");
+
+            // At this point, bgmEnabled is true.
+            if (restart) {
+                bgmAudioElement.currentTime = 0;
+                console.log("BGM restart requested: currentTime set to 0. Attempting to play.");
+                // Now attempt to play
                 const playPromise = bgmAudioElement.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log("MP3 BGM playback started successfully.");
+                        console.log("MP3 BGM (re)started successfully.");
                     }).catch(error => {
-                        console.warn("MP3 BGM play failed. Error:", error);
+                        console.warn("MP3 BGM (re)start failed. Error:", error);
                     });
                 } else {
-                     console.warn("bgmAudioElement.play() did not return a promise.");
+                     console.warn("bgmAudioElement.play() did not return a promise on restart.");
                 }
-            } else if (!bgmEnabled) {
-                console.log("BGM play call skipped: BGM is disabled.");
-            } else if (!bgmAudioElement.paused) {
-                console.log("BGM play call skipped: BGM is already playing (or restart wasn't forced).");
+            } else { // Not a restart, so play only if paused
+                if (bgmAudioElement.paused) {
+                    console.log("Attempting to play MP3 BGM (was paused)...");
+                    const playPromise = bgmAudioElement.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log("MP3 BGM playback resumed successfully.");
+                        }).catch(error => {
+                            console.warn("MP3 BGM resume failed. Error:", error);
+                        });
+                    } else {
+                        console.warn("bgmAudioElement.play() did not return a promise on resume.");
+                    }
+                } else {
+                    console.log("BGM play call skipped: BGM is already playing and restart not requested.");
+                }
             }
         }
 
         function stopMp3BGM() { 
             if (bgmAudioElement) {
                 bgmAudioElement.pause();
-                console.log("MP3 BGM stopped.");
+                console.log("MP3 BGM stopped (pause() called).");
             } else {
                  console.error("Cannot stop BGM: audio element not found.");
             }
@@ -374,13 +353,13 @@
         if (toggleBGMBtn) { 
             toggleBGMBtn.addEventListener('click', () => {
                 console.log("BGM button clicked. Current bgmEnabled state BEFORE toggle:", bgmEnabled);
-                const wasEnabled = bgmEnabled; // Store state before toggle
+                const wasEnabled = bgmEnabled; 
                 bgmEnabled = !bgmEnabled; 
                 console.log("bgmEnabled toggled. New state:", bgmEnabled);
 
                 if (bgmEnabled) {
-                    console.log("Calling playMp3BGM() from button click (BGM enabled). Restart if it was previously off.");
-                    playMp3BGM(!wasEnabled); // Restart if it was previously off and now turned on
+                    console.log("Calling playMp3BGM() from button click (BGM enabled). Restart if it was previously off: ", !wasEnabled);
+                    playMp3BGM(!wasEnabled); 
                 } else {
                     console.log("Calling stopMp3BGM() from button click (BGM disabled).");
                     stopMp3BGM();
@@ -392,59 +371,6 @@
             console.error("Could not add event listener: toggleBGMBtn element not found.");
         }
 
-
-												
-														
-																				   
-											   
-													
-		 
-																		
-							   
-																									 
-																											   
-					
-																									 
-																											   
-			 
-						
-		 
-													   
-																								  
-																								
-																								 
-																																																					 
-																																																					 
-													 
-																																																			 
-																																																																																									
-																																																																																									
-			 
-													 
-																																																			  
-																																																																																									
-																																																																																									
-			 
-						
-		 
-
-												
-										   
-																							
-																																																								   
-													   
-						  
-																				  
-															   
-																	   
-																		 
-																																																																		  
-										   
-											   
-			 
-		 
-
-							 
         function initGame() {
             console.log("Initializing game...");
             stopTimer();
@@ -453,8 +379,8 @@
             if (bgmAudioElement) {
                 if (bgmEnabled) {
                     console.log("initGame: BGM is enabled. Requesting restart.");
-                    playMp3BGM(true); // Request BGM to restart
-                } else if (!bgmAudioElement.paused) {
+                    playMp3BGM(true); 
+                } else if (!bgmAudioElement.paused) { // If BGM disabled but somehow playing
                     console.log("initGame: BGM is disabled but was playing. Stopping it.");
                     stopMp3BGM();
                 }
@@ -481,8 +407,6 @@
             board = generatedBoardCandidate; renderBoard(); startTimer(); console.log("Game initialized.");
         }
 
-        // --- (The rest of the JavaScript: renderBoard, handleTileClick, pathfinding, etc. remains largely unchanged) ---
-        // ... (ensure all other functions are present as in the previous version) ...
         function renderBoard() {
             gameBoardElement.innerHTML = ''; 
             setTimeout(() => {
@@ -591,7 +515,6 @@
                         secondTileToRemove.addEventListener('animationend', onAnimationEnd, { once: true });
 
                     } else {
-																	   
                         if (firstTileElementForEffects) { 
                            firstTileElementForEffects.classList.add('shaking');
                         } else {
@@ -610,7 +533,6 @@
                         }, 500); 
                     }
                 } else {
-																
                      if (firstTileElementForEffects) { 
                         firstTileElementForEffects.classList.add('shaking');
                     } else {
@@ -635,15 +557,12 @@
         function drawPath(pathPoints) {
             if (!pathPoints || pathPoints.length < 2) return;
             clearPathCanvas(); 
-
             const firstTileElement = gameBoardElement.querySelector(`.tile[data-r="${pathPoints[0].r}"][data-c="${pathPoints[0].c}"]`);
             if (!firstTileElement) { console.error("Cannot find first tile for path drawing"); return; }
-
             const tileWidth = firstTileElement.offsetWidth;
             const tileHeight = firstTileElement.offsetHeight;
             const gameBoardStyle = getComputedStyle(gameBoardElement);
             const gap = parseFloat(gameBoardStyle.getPropertyValue('gap')) || (gameBoardElement.offsetWidth > 400 ? 4 : 2); 
-
             canvasCtx.beginPath();
             for (let i = 0; i < pathPoints.length; i++) {
                 const point = pathPoints[i];
